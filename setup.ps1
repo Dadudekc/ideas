@@ -1,31 +1,31 @@
-# PowerShell Script to Set Up Project Structures for Sentiment_Trading_Engine and Smart_Asset_Allocator
+# PowerShell Script to Set Up Project Structures for Quantitative_Backtester and Portfolio_Optimization_Tool
 
 # Define root project directories
-$projects = @("Sentiment_Trading_Engine", "Smart_Asset_Allocator")
+$projects = @("Quantitative_Backtester", "Portfolio_Optimization_Tool")
 
 # Define folder structures for each project
 $structures = @{
-    "Sentiment_Trading_Engine" = @(
+    "Quantitative_Backtester" = @(
         "config",
-        "data/sentiment_data",
-        "data/trade_logs",
-        "data/reports",
-        "src/data_collection",
-        "src/sentiment_analysis",
-        "src/trading_logic",
+        "data/historical_data",
+        "data/results",
+        "data/logs",
+        "src/data_ingestion",
+        "src/strategy_backtesting",
+        "src/analysis_tools",
         "src/utils",
         "notebooks",
         "scripts",
         "tests"
     )
-    "Smart_Asset_Allocator" = @(
+    "Portfolio_Optimization_Tool" = @(
         "config",
+        "data/portfolio_data",
         "data/market_data",
-        "data/allocations",
-        "data/analysis",
-        "src/allocation_strategies",
-        "src/data_processing",
-        "src/risk_assessment",
+        "data/outputs",
+        "src/optimization_algorithms",
+        "src/data_management",
+        "src/risk_analysis",
         "src/utils",
         "notebooks",
         "scripts",
@@ -35,33 +35,33 @@ $structures = @{
 
 # Define files with initial content for each project
 $files = @{
-    "Sentiment_Trading_Engine" = @{
-        "config/api_keys.yaml" = "# API keys and access tokens for sentiment sources"
-        "README.md" = "# Sentiment Trading Engine Project"
+    "Quantitative_Backtester" = @{
+        "config/backtest_settings.yaml" = "# Settings for backtesting configurations"
+        "README.md" = "# Quantitative Backtester Project"
         "requirements.txt" = "# List of dependencies"
-        "src/data_collection/social_media_fetcher.py" = "# Fetch social media sentiment data"
-        "src/sentiment_analysis/sentiment_classifier.py" = "# Classify sentiment for trading decisions"
-        "src/trading_logic/strategy_engine.py" = "# Executes trades based on sentiment scores"
+        "src/data_ingestion/price_data_loader.py" = "# Loads historical price data"
+        "src/strategy_backtesting/backtest_engine.py" = "# Core backtesting logic for strategies"
+        "src/analysis_tools/performance_metrics.py" = "# Calculates metrics like Sharpe, drawdown, etc."
         "src/utils/logger.py" = "# Custom logging setup"
         "src/utils/config_loader.py" = "# Utility to load configurations"
-        "notebooks/Sentiment_Impact_Analysis.ipynb" = "# Jupyter Notebook for sentiment impact analysis"
-        "scripts/run_sentiment_trade.py" = "# Script to run the sentiment-based trading engine"
-        "tests/test_sentiment_classifier.py" = "# Unit tests for sentiment classifier module"
+        "notebooks/Backtest_Analysis.ipynb" = "# Jupyter Notebook for analyzing backtest results"
+        "scripts/run_backtest.py" = "# Script to execute backtest on strategies"
+        "tests/test_backtest_engine.py" = "# Unit tests for backtest engine module"
     }
-    "Smart_Asset_Allocator" = @{
-        "config/allocation_settings.yaml" = "# Configuration for allocation strategies"
-        "config/risk_profile.yaml" = "# User risk tolerance settings"
-        "README.md" = "# Smart Asset Allocator Project"
+    "Portfolio_Optimization_Tool" = @{
+        "config/optimization_params.yaml" = "# Configuration for optimization parameters"
+        "config/risk_constraints.yaml" = "# User-defined risk constraints for optimization"
+        "README.md" = "# Portfolio Optimization Tool Project"
         "requirements.txt" = "# List of dependencies"
-        "src/allocation_strategies/mean_variance_allocator.py" = "# Mean-variance optimization allocator"
-        "src/allocation_strategies/risk_parity_allocator.py" = "# Risk parity allocation strategy"
-        "src/data_processing/market_data_cleaner.py" = "# Cleans and preprocesses market data"
-        "src/risk_assessment/volatility_calculator.py" = "# Calculates asset volatility"
+        "src/optimization_algorithms/mean_variance_optimizer.py" = "# Mean-variance optimization algorithm"
+        "src/optimization_algorithms/black_litterman_model.py" = "# Black-Litterman model for allocation"
+        "src/data_management/data_cleaner.py" = "# Cleans and organizes market data"
+        "src/risk_analysis/risk_assessor.py" = "# Evaluates portfolio risk metrics"
         "src/utils/logger.py" = "# Custom logging setup"
-        "src/utils/report_generator.py" = "# Generates reports for asset allocations"
-        "notebooks/Allocation_Strategy_Analysis.ipynb" = "# Jupyter Notebook for allocation strategy exploration"
-        "scripts/run_allocator.py" = "# Script to start asset allocation process"
-        "tests/test_allocation_strategies.py" = "# Unit tests for allocation strategies"
+        "src/utils/report_generator.py" = "# Generates portfolio optimization reports"
+        "notebooks/Optimization_Strategy_Analysis.ipynb" = "# Jupyter Notebook for optimization strategy exploration"
+        "scripts/run_optimization.py" = "# Script to start portfolio optimization process"
+        "tests/test_optimization_algorithms.py" = "# Unit tests for optimization algorithms"
     }
 }
 
@@ -83,4 +83,4 @@ foreach ($project in $projects) {
     }
 }
 
-Write-Output "Project structures for Sentiment_Trading_Engine and Smart_Asset_Allocator created successfully."
+Write-Output "Project structures for Quantitative_Backtester and Portfolio_Optimization_Tool created successfully."
