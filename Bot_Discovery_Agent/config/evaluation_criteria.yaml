@@ -1,0 +1,7 @@
+# Path: Bot_Discovery_Agent/config/evaluation_criteria.yaml
+# Criteria for scoring trading bots (e.g., volatility, win rate)
+
+criteria:
+  - volatility: 'medium'
+  - win_rate_threshold: 0.6
+  - risk_tolerance: 'low'

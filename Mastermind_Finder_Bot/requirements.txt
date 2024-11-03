@@ -1,0 +1,2 @@
+# Path: Mastermind_Finder_Bot/requirements.txt
+# Python dependencies

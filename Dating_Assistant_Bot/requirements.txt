@@ -1,0 +1,2 @@
+# Path: Dating_Assistant_Bot/requirements.txt
+# Python dependencies

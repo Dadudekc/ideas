@@ -1,0 +1,11 @@
+# Path: Dating_Assistant_Bot/config/profiles.yaml
+# Stores details about your interests, preferences, and dating goals
+
+# Profile settings
+interests:
+  - reading
+  - travel
+  - hiking
+goals:
+  relationship: true
+  casual: false

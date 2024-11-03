@@ -1,0 +1,6 @@
+# Path: AI_Options_Trading_Bot/config/agent_configs/volatility_agent.yaml
+# Config for Volatility Agent
+
+settings:
+  trade_size: 1000
+  volatility_threshold: 0.2

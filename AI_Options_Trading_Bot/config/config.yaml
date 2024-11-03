@@ -1,0 +1,8 @@
+# Path: AI_Options_Trading_Bot/config/config.yaml
+# General project configuration
+
+api_keys:
+  broker: 'YOUR_API_KEY'
+trading_limits:
+  daily_limit: 5000
+  max_trades: 10

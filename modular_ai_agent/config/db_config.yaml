@@ -1,0 +1,9 @@
+# Path: modular_ai_agent/config/db_config.yaml
+# Database settings for PostgreSQL or Oracle, including backup options
+database:
+  type: 'PostgreSQL'
+  host: 'localhost'
+  port: 5432
+  user: 'username'
+  password: 'password'
+  backup_schedule: 'daily'

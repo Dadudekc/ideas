@@ -1,0 +1,6 @@
+# Path: modular_ai_agent/config/feature_config.yaml
+# Configuration for feature engineering
+features:
+  use_sentiment: true
+  use_technical_indicators: true
+  target_variable: 'price_change'

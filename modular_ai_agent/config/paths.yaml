@@ -1,0 +1,6 @@
+# Path: modular_ai_agent/config/paths.yaml
+# File paths for different directories in the project
+paths:
+  data_dir: 'data'
+  models_dir: 'models'
+  logs_dir: 'logs'

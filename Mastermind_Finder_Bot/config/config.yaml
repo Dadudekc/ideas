@@ -1,0 +1,10 @@
+# Path: Mastermind_Finder_Bot/config/config.yaml
+# Bot settings (platforms, preferences, messaging styles)
+
+# Sample configuration settings
+platforms:
+  - LinkedIn
+  - Twitter
+preferences:
+  outreach_style: friendly
+  follow_up_frequency: 7  # days

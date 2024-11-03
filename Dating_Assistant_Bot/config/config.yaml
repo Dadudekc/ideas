@@ -1,0 +1,9 @@
+# Path: Dating_Assistant_Bot/config/config.yaml
+# General bot configurations (API keys, preferences)
+
+# Sample configurations
+api_keys:
+  dating_app_api: 'YOUR_API_KEY_HERE'
+preferences:
+  location: 'New York'
+  age_range: [25, 35]

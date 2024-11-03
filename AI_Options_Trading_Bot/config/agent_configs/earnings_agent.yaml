@@ -1,0 +1,6 @@
+# Path: AI_Options_Trading_Bot/config/agent_configs/earnings_agent.yaml
+# Config for Earnings Play Agent
+
+settings:
+  iv_crush_threshold: 0.25
+  max_trade_risk: 0.05

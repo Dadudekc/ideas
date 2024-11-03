@@ -1,0 +1,10 @@
+# Path: Mastermind_Finder_Bot/config/criteria.yaml
+# Defines qualities and goals you seek in mastermind members
+
+# Define criteria for selecting mastermind members
+qualities:
+  - ambitious
+  - goal-oriented
+goals:
+  - personal growth
+  - business networking

@@ -1,0 +1,2 @@
+# Path: AI_Options_Trading_Bot/requirements.txt
+# Python dependencies

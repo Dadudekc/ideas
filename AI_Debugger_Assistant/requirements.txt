@@ -1,0 +1,8 @@
+# Path: AI_Debugger_Assistant/requirements.txt
+# Python dependencies for the project
+
+# Dependencies go here, e.g.:
+# requests
+# numpy
+# pandas
+# scikit-learn

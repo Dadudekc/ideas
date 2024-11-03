@@ -1,0 +1,2 @@
+# Path: Bot_Discovery_Agent/requirements.txt
+# Python dependencies

@@ -1,0 +1,6 @@
+# Path: Dating_Assistant_Bot/config/prompts.yaml
+# Pre-defined prompts and conversation templates
+
+prompts:
+  - 'Hi {name}, I noticed we both love {interest}. What’s your favorite part about it?'
+  - 'Hello {name}, if you could travel anywhere right now, where would you go?'

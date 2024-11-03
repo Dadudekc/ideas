@@ -1,0 +1,6 @@
+# Path: AI_Options_Trading_Bot/config/risk_management.yaml
+# Global risk management settings
+
+risk:
+  max_drawdown: 0.1
+  stop_loss: 0.05

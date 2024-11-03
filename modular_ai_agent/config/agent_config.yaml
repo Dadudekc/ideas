@@ -1,0 +1,7 @@
+# Path: modular_ai_agent/config/agent_config.yaml
+# Configurations for agent goals and performance tracking
+agent:
+  goals:
+    - 'maximize_trading_returns'
+    - 'minimize risk'
+  performance_tracking: true

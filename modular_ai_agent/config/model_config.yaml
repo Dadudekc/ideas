@@ -1,0 +1,10 @@
+# Path: modular_ai_agent/config/model_config.yaml
+# Model and hyperparameter settings
+models:
+  trading_model:
+    architecture: 'LSTM'
+    hyperparameters:
+      learning_rate: 0.001
+      epochs: 50
+  sentiment_model:
+    architecture: 'BERT'

@@ -1,0 +1,8 @@
+# Path: Bot_Discovery_Agent/config/config.yaml
+# General project configurations (API keys, evaluation criteria, etc.)
+
+api_keys:
+  bot_platform: 'YOUR_API_KEY_HERE'
+evaluation:
+  max_risk: 0.05
+  min_win_rate: 0.6

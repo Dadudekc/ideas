@@ -1,0 +1,6 @@
+# Path: AI_Options_Trading_Bot/config/agent_configs/scalping_agent.yaml
+# Config for GEX Scalping Agent
+
+settings:
+  trade_size: 500
+  gex_threshold: 0.15

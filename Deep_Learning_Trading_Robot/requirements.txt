@@ -1,0 +1,7 @@
+# Python dependencies for Deep_Learning_Trading_Robot
+numpy
+pandas
+scikit-learn
+tensorflow
+matplotlib
+requests

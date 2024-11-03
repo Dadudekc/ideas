@@ -1,0 +1,7 @@
+# Path: Mastermind_Finder_Bot/config/outreach_templates.yaml
+# Pre-defined outreach messages for connecting with potential members
+
+# Sample outreach message templates
+templates:
+  - Hello {name}, I came across your profile and thought you'd be a great fit for our mastermind group.
+  - Hi {name}, I’m reaching out to connect with like-minded professionals in {field}.
