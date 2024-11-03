@@ -1,30 +1,30 @@
-# PowerShell Script to Set Up Project Structures for Market_News_Analyzer and Portfolio_Optimizer_Bot
+# PowerShell Script to Set Up Project Structures for Sentiment_Trading_Engine and Smart_Asset_Allocator
 
 # Define root project directories
-$projects = @("Market_News_Analyzer", "Portfolio_Optimizer_Bot")
+$projects = @("Sentiment_Trading_Engine", "Smart_Asset_Allocator")
 
 # Define folder structures for each project
 $structures = @{
-    "Market_News_Analyzer" = @(
+    "Sentiment_Trading_Engine" = @(
         "config",
-        "data/raw",
-        "data/processed",
+        "data/sentiment_data",
+        "data/trade_logs",
         "data/reports",
         "src/data_collection",
-        "src/text_analysis",
-        "src/report_generation",
+        "src/sentiment_analysis",
+        "src/trading_logic",
         "src/utils",
         "notebooks",
         "scripts",
         "tests"
     )
-    "Portfolio_Optimizer_Bot" = @(
+    "Smart_Asset_Allocator" = @(
         "config",
-        "data/portfolio_data",
-        "data/optimization_results",
-        "data/risk_reports",
-        "src/portfolio_management",
-        "src/optimization",
+        "data/market_data",
+        "data/allocations",
+        "data/analysis",
+        "src/allocation_strategies",
+        "src/data_processing",
         "src/risk_assessment",
         "src/utils",
         "notebooks",
@@ -35,35 +35,33 @@ $structures = @{
 
 # Define files with initial content for each project
 $files = @{
-    "Market_News_Analyzer" = @{
-        "config/api_keys.yaml" = "# API keys and access tokens for news sources"
-        "README.md" = "# Market News Analyzer Project"
+    "Sentiment_Trading_Engine" = @{
+        "config/api_keys.yaml" = "# API keys and access tokens for sentiment sources"
+        "README.md" = "# Sentiment Trading Engine Project"
         "requirements.txt" = "# List of dependencies"
-        "src/data_collection/news_fetcher.py" = "# Script to fetch news articles via API"
-        "src/text_analysis/sentiment_analysis.py" = "# Sentiment analysis on news articles"
-        "src/text_analysis/topic_modeling.py" = "# Topic modeling to identify trending topics"
-        "src/report_generation/generate_report.py" = "# Generate reports on analyzed news data"
+        "src/data_collection/social_media_fetcher.py" = "# Fetch social media sentiment data"
+        "src/sentiment_analysis/sentiment_classifier.py" = "# Classify sentiment for trading decisions"
+        "src/trading_logic/strategy_engine.py" = "# Executes trades based on sentiment scores"
         "src/utils/logger.py" = "# Custom logging setup"
         "src/utils/config_loader.py" = "# Utility to load configurations"
-        "notebooks/News_Sentiment_Analysis.ipynb" = "# Jupyter Notebook for sentiment analysis exploration"
-        "scripts/run_news_analysis.py" = "# Script to run full news analysis pipeline"
-        "tests/test_sentiment_analysis.py" = "# Unit tests for sentiment analysis module"
+        "notebooks/Sentiment_Impact_Analysis.ipynb" = "# Jupyter Notebook for sentiment impact analysis"
+        "scripts/run_sentiment_trade.py" = "# Script to run the sentiment-based trading engine"
+        "tests/test_sentiment_classifier.py" = "# Unit tests for sentiment classifier module"
     }
-    "Portfolio_Optimizer_Bot" = @{
-        "config/optimization_settings.yaml" = "# Configuration for optimization parameters"
-        "config/risk_tolerance.yaml" = "# Global risk tolerance settings"
-        "README.md" = "# Portfolio Optimizer Bot Project"
+    "Smart_Asset_Allocator" = @{
+        "config/allocation_settings.yaml" = "# Configuration for allocation strategies"
+        "config/risk_profile.yaml" = "# User risk tolerance settings"
+        "README.md" = "# Smart Asset Allocator Project"
         "requirements.txt" = "# List of dependencies"
-        "src/portfolio_management/data_manager.py" = "# Manages portfolio data"
-        "src/optimization/optimizer.py" = "# Core portfolio optimization engine"
-        "src/optimization/constraints.py" = "# Define constraints for portfolio optimization"
-        "src/risk_assessment/volatility_calculator.py" = "# Calculates portfolio volatility"
+        "src/allocation_strategies/mean_variance_allocator.py" = "# Mean-variance optimization allocator"
+        "src/allocation_strategies/risk_parity_allocator.py" = "# Risk parity allocation strategy"
+        "src/data_processing/market_data_cleaner.py" = "# Cleans and preprocesses market data"
+        "src/risk_assessment/volatility_calculator.py" = "# Calculates asset volatility"
         "src/utils/logger.py" = "# Custom logging setup"
-        "src/utils/performance_tracker.py" = "# Track and log optimization performance"
-        "notebooks/Portfolio_Optimization_Analysis.ipynb" = "# Jupyter Notebook for portfolio optimization"
-        "scripts/run_optimizer.py" = "# Script to start optimization"
-        "scripts/generate_risk_report.py" = "# Script to generate risk reports"
-        "tests/test_optimizer.py" = "# Unit tests for optimization module"
+        "src/utils/report_generator.py" = "# Generates reports for asset allocations"
+        "notebooks/Allocation_Strategy_Analysis.ipynb" = "# Jupyter Notebook for allocation strategy exploration"
+        "scripts/run_allocator.py" = "# Script to start asset allocation process"
+        "tests/test_allocation_strategies.py" = "# Unit tests for allocation strategies"
     }
 }
 
@@ -85,4 +83,4 @@ foreach ($project in $projects) {
     }
 }
 
-Write-Output "Project structures for Market_News_Analyzer and Portfolio_Optimizer_Bot created successfully."
+Write-Output "Project structures for Sentiment_Trading_Engine and Smart_Asset_Allocator created successfully."
