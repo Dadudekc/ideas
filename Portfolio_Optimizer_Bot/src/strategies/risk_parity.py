@@ -1,1 +1,0 @@
-# Implementation of risk parity strategy

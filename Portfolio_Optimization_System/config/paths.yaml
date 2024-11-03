@@ -1,0 +1,3 @@
+# Path Configuration
+data_directory: './data/raw_data/'
+logs_directory: './data/logs/'

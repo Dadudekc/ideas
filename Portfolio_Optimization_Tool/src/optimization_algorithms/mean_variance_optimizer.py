@@ -1,1 +1,0 @@
-# Mean-variance optimization algorithm

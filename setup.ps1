@@ -1,86 +1,90 @@
-# PowerShell Script to Set Up Project Structures for Quantitative_Backtester and Portfolio_Optimization_Tool
+# Portfolio_Optimization_System setup script in PowerShell
+# Creates the directory structure with essential files and initial content
 
-# Define root project directories
-$projects = @("Quantitative_Backtester", "Portfolio_Optimization_Tool")
+# Root project directory
+$root = "Portfolio_Optimization_System"
 
-# Define folder structures for each project
-$structures = @{
-    "Quantitative_Backtester" = @(
-        "config",
-        "data/historical_data",
-        "data/results",
-        "data/logs",
-        "src/data_ingestion",
-        "src/strategy_backtesting",
-        "src/analysis_tools",
-        "src/utils",
-        "notebooks",
-        "scripts",
-        "tests"
+# Define directory structure
+$structure = @{
+    "$root/config" = @(
+        "optimization_params.yaml",
+        "risk_constraints.yaml",
+        "optimizer_config.yaml",
+        "constraints.yaml",
+        "paths.yaml"
     )
-    "Portfolio_Optimization_Tool" = @(
-        "config",
-        "data/portfolio_data",
-        "data/market_data",
-        "data/outputs",
-        "src/optimization_algorithms",
-        "src/data_management",
-        "src/risk_analysis",
-        "src/utils",
-        "notebooks",
-        "scripts",
-        "tests"
+    "$root/data" = @()
+    "$root/data/raw_data" = @()
+    "$root/data/processed_data" = @()
+    "$root/data/results" = @()
+    "$root/data/logs" = @()
+    "$root/data/optimization_results" = @()
+    "$root/data/simulations" = @()
+    "$root/data/risk_reports" = @()
+    "$root/notebooks" = @(
+        "Portfolio_Optimization_Analysis.ipynb",
+        "Optimization_Experiments.ipynb",
+        "Backtest_Analysis.ipynb"
+    )
+    "$root/scripts" = @(
+        "run_optimization.py",
+        "generate_risk_report.py",
+        "run_backtest.py"
+    )
+    "$root/src" = @()
+    "$root/src/data_management" = @(
+        "data_cleaner.py",
+        "data_manager.py",
+        "market_data_loader.py"
+    )
+    "$root/src/optimization_algorithms" = @(
+        "mean_variance_optimizer.py",
+        "black_litterman_model.py",
+        "risk_parity.py",
+        "optimizer.py"
+    )
+    "$root/src/strategies" = @(
+        "mean_variance.py",
+        "risk_parity.py",
+        "custom_strategy.py"
+    )
+    "$root/src/risk_analysis" = @(
+        "risk_assessor.py",
+        "volatility_calculator.py"
+    )
+    "$root/src/utils" = @(
+        "logger.py",
+        "performance_tracker.py",
+        "report_generator.py",
+        "risk_management.py"
+    )
+    "$root/src/tests" = @(
+        "test_optimization_algorithms.py",
+        "test_portfolio_optimizer.py",
+        "test_risk_assessment.py",
+        "test_utils.py"
     )
 }
 
-# Define files with initial content for each project
-$files = @{
-    "Quantitative_Backtester" = @{
-        "config/backtest_settings.yaml" = "# Settings for backtesting configurations"
-        "README.md" = "# Quantitative Backtester Project"
-        "requirements.txt" = "# List of dependencies"
-        "src/data_ingestion/price_data_loader.py" = "# Loads historical price data"
-        "src/strategy_backtesting/backtest_engine.py" = "# Core backtesting logic for strategies"
-        "src/analysis_tools/performance_metrics.py" = "# Calculates metrics like Sharpe, drawdown, etc."
-        "src/utils/logger.py" = "# Custom logging setup"
-        "src/utils/config_loader.py" = "# Utility to load configurations"
-        "notebooks/Backtest_Analysis.ipynb" = "# Jupyter Notebook for analyzing backtest results"
-        "scripts/run_backtest.py" = "# Script to execute backtest on strategies"
-        "tests/test_backtest_engine.py" = "# Unit tests for backtest engine module"
-    }
-    "Portfolio_Optimization_Tool" = @{
-        "config/optimization_params.yaml" = "# Configuration for optimization parameters"
-        "config/risk_constraints.yaml" = "# User-defined risk constraints for optimization"
-        "README.md" = "# Portfolio Optimization Tool Project"
-        "requirements.txt" = "# List of dependencies"
-        "src/optimization_algorithms/mean_variance_optimizer.py" = "# Mean-variance optimization algorithm"
-        "src/optimization_algorithms/black_litterman_model.py" = "# Black-Litterman model for allocation"
-        "src/data_management/data_cleaner.py" = "# Cleans and organizes market data"
-        "src/risk_analysis/risk_assessor.py" = "# Evaluates portfolio risk metrics"
-        "src/utils/logger.py" = "# Custom logging setup"
-        "src/utils/report_generator.py" = "# Generates portfolio optimization reports"
-        "notebooks/Optimization_Strategy_Analysis.ipynb" = "# Jupyter Notebook for optimization strategy exploration"
-        "scripts/run_optimization.py" = "# Script to start portfolio optimization process"
-        "tests/test_optimization_algorithms.py" = "# Unit tests for optimization algorithms"
+# Create directories and files
+foreach ($path in $structure.Keys) {
+    New-Item -ItemType Directory -Path $path -Force | Out-Null
+    foreach ($file in $structure[$path]) {
+        New-Item -ItemType File -Path "$path/$file" -Force | Out-Null
     }
 }
 
-# Create folders and files for each project
-foreach ($project in $projects) {
-    $rootDir = $project
-
-    # Create folders for the current project
-    foreach ($folder in $structures[$project]) {
-        $path = "$rootDir/$folder"
-        New-Item -ItemType Directory -Force -Path $path | Out-Null
-    }
-
-    # Create files with initial content for the current project
-    foreach ($filePath in $files[$project].Keys) {
-        $content = $files[$project][$filePath]
-        $fullPath = "$rootDir/$filePath"
-        New-Item -ItemType File -Force -Path $fullPath -Value $content | Out-Null
-    }
+# Create additional essential files at root level
+$rootFiles = @("requirements.txt", "README.md", "run_system.py")
+foreach ($file in $rootFiles) {
+    New-Item -ItemType File -Path "$root/$file" -Force | Out-Null
 }
 
-Write-Output "Project structures for Quantitative_Backtester and Portfolio_Optimization_Tool created successfully."
+# Initial content for some key files
+Set-Content -Path "$root/README.md" -Value "# Portfolio Optimization System`nThis project provides tools for optimizing and backtesting portfolios."
+Set-Content -Path "$root/run_system.py" -Value "# Entry point to run Portfolio Optimization System`nif __name__ == '__main__':`n    print('Starting Portfolio Optimization System...')"
+Set-Content -Path "$root/config/optimization_params.yaml" -Value "# Optimization Parameters`nmax_iter: 1000`nloss_tolerance: 0.01"
+Set-Content -Path "$root/config/risk_constraints.yaml" -Value "# Risk Constraints Configuration`nmax_drawdown: 0.2`nrisk_tolerance: moderate"
+Set-Content -Path "$root/config/paths.yaml" -Value "# Path Configuration`ndata_directory: './data/raw_data/'`nlogs_directory: './data/logs/'"
+
+Write-Host "Portfolio Optimization System project structure created successfully."
