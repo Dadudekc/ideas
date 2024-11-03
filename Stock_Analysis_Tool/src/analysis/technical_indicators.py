@@ -1,0 +1,1 @@
+# Script for technical indicator calculations

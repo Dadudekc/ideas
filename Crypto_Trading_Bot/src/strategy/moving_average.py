@@ -1,0 +1,1 @@
+# Moving average trading strategy logic
