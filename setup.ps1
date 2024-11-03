@@ -1,18 +1,18 @@
-# PowerShell Script to Set Up Project Structures for Stock_Analysis_Tool and Portfolio_Optimizer_Bot
+# PowerShell Script to Set Up Project Structures for Market_News_Analyzer and Portfolio_Optimizer_Bot
 
 # Define root project directories
-$projects = @("Stock_Analysis_Tool", "Portfolio_Optimizer_Bot")
+$projects = @("Market_News_Analyzer", "Portfolio_Optimizer_Bot")
 
 # Define folder structures for each project
 $structures = @{
-    "Stock_Analysis_Tool" = @(
+    "Market_News_Analyzer" = @(
         "config",
         "data/raw",
         "data/processed",
         "data/reports",
         "src/data_collection",
-        "src/analysis",
-        "src/visualization",
+        "src/text_analysis",
+        "src/report_generation",
         "src/utils",
         "notebooks",
         "scripts",
@@ -20,12 +20,12 @@ $structures = @{
     )
     "Portfolio_Optimizer_Bot" = @(
         "config",
-        "data/historical",
-        "data/simulations",
-        "data/results",
+        "data/portfolio_data",
+        "data/optimization_results",
+        "data/risk_reports",
+        "src/portfolio_management",
         "src/optimization",
-        "src/strategies",
-        "src/data_processing",
+        "src/risk_assessment",
         "src/utils",
         "notebooks",
         "scripts",
@@ -35,35 +35,35 @@ $structures = @{
 
 # Define files with initial content for each project
 $files = @{
-    "Stock_Analysis_Tool" = @{
-        "config/settings.yaml" = "# General settings for stock analysis tool"
-        "data/logs/.gitkeep" = ""
-        "README.md" = "# Stock Analysis Tool Project"
+    "Market_News_Analyzer" = @{
+        "config/api_keys.yaml" = "# API keys and access tokens for news sources"
+        "README.md" = "# Market News Analyzer Project"
         "requirements.txt" = "# List of dependencies"
-        "src/data_collection/data_fetcher.py" = "# Script for data retrieval from financial APIs"
-        "src/analysis/financial_ratios.py" = "# Script for calculating financial ratios"
-        "src/analysis/technical_indicators.py" = "# Script for technical indicator calculations"
-        "src/visualization/chart_generator.py" = "# Script for generating stock charts"
-        "src/utils/config_loader.py" = "# Utility to load configurations"
+        "src/data_collection/news_fetcher.py" = "# Script to fetch news articles via API"
+        "src/text_analysis/sentiment_analysis.py" = "# Sentiment analysis on news articles"
+        "src/text_analysis/topic_modeling.py" = "# Topic modeling to identify trending topics"
+        "src/report_generation/generate_report.py" = "# Generate reports on analyzed news data"
         "src/utils/logger.py" = "# Custom logging setup"
-        "notebooks/Stock_Analysis_Overview.ipynb" = "# Jupyter Notebook for stock analysis"
-        "scripts/generate_report.py" = "# Generates analysis report"
-        "tests/test_financial_ratios.py" = "# Unit tests for financial ratios module"
+        "src/utils/config_loader.py" = "# Utility to load configurations"
+        "notebooks/News_Sentiment_Analysis.ipynb" = "# Jupyter Notebook for sentiment analysis exploration"
+        "scripts/run_news_analysis.py" = "# Script to run full news analysis pipeline"
+        "tests/test_sentiment_analysis.py" = "# Unit tests for sentiment analysis module"
     }
     "Portfolio_Optimizer_Bot" = @{
-        "config/optimizer_config.yaml" = "# Settings for portfolio optimization parameters"
-        "data/logs/.gitkeep" = ""
+        "config/optimization_settings.yaml" = "# Configuration for optimization parameters"
+        "config/risk_tolerance.yaml" = "# Global risk tolerance settings"
         "README.md" = "# Portfolio Optimizer Bot Project"
         "requirements.txt" = "# List of dependencies"
-        "src/optimization/portfolio_optimizer.py" = "# Main portfolio optimization algorithm"
-        "src/strategies/risk_parity.py" = "# Implementation of risk parity strategy"
-        "src/strategies/mean_variance.py" = "# Implementation of mean-variance optimization"
-        "src/data_processing/data_cleaner.py" = "# Cleans and processes raw data for optimization"
-        "src/utils/risk_management.py" = "# Risk management utilities"
+        "src/portfolio_management/data_manager.py" = "# Manages portfolio data"
+        "src/optimization/optimizer.py" = "# Core portfolio optimization engine"
+        "src/optimization/constraints.py" = "# Define constraints for portfolio optimization"
+        "src/risk_assessment/volatility_calculator.py" = "# Calculates portfolio volatility"
         "src/utils/logger.py" = "# Custom logging setup"
-        "notebooks/Optimization_Experiments.ipynb" = "# Jupyter Notebook for optimization testing"
-        "scripts/run_optimization.py" = "# Script to run portfolio optimization with configurations"
-        "tests/test_portfolio_optimizer.py" = "# Unit tests for portfolio optimizer"
+        "src/utils/performance_tracker.py" = "# Track and log optimization performance"
+        "notebooks/Portfolio_Optimization_Analysis.ipynb" = "# Jupyter Notebook for portfolio optimization"
+        "scripts/run_optimizer.py" = "# Script to start optimization"
+        "scripts/generate_risk_report.py" = "# Script to generate risk reports"
+        "tests/test_optimizer.py" = "# Unit tests for optimization module"
     }
 }
 
@@ -85,4 +85,4 @@ foreach ($project in $projects) {
     }
 }
 
-Write-Output "Project structures for Stock_Analysis_Tool and Portfolio_Optimizer_Bot created successfully."
+Write-Output "Project structures for Market_News_Analyzer and Portfolio_Optimizer_Bot created successfully."

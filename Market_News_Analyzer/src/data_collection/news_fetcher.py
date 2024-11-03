@@ -1,0 +1,1 @@
+# Script to fetch news articles via API
