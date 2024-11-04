@@ -1,0 +1,12 @@
+2024-11-03 20:45:08,739 - data_fetcher - ERROR - DATABASE_URL is not set in environment variables.
+2024-11-03 20:45:08,739 - data_fetcher - ERROR - Unexpected error initializing DataStore: Missing DATABASE_URL.
+2024-11-03 20:46:52,576 - data_fetcher - ERROR - DATABASE_URL is not set in environment variables.
+2024-11-03 20:46:52,576 - data_fetcher - ERROR - Unexpected error initializing DataStore: Missing DATABASE_URL.
+2024-11-03 20:50:37,416 - data_fetcher - ERROR - Unexpected error initializing DataStore: No module named 'psycopg2'
+2024-11-03 20:51:40,866 - data_fetcher - ERROR - Unexpected error initializing DataStore: DLL load failed while importing _psycopg: The specified module could not be found.
+2024-11-03 21:01:02,336 - data_fetcher - ERROR - Unexpected error initializing DataStore: DLL load failed while importing _psycopg: The specified module could not be found.
+2024-11-03 21:10:13,105 - data_fetcher - ERROR - Unexpected error initializing DataStore: DLL load failed while importing _psycopg: The specified module could not be found.
+2024-11-03 21:10:24,052 - data_fetcher - ERROR - Unexpected error initializing DataStore: DLL load failed while importing _psycopg: The specified module could not be found.
+2024-11-03 21:13:30,157 - data_fetcher - ERROR - Unexpected error initializing DataStore: DLL load failed while importing _psycopg: The specified module could not be found.
+2024-11-03 21:35:42,539 - data_fetcher - INFO - Configuration - Interval: day, Symbols: ['TSLA', 'AAPL', 'AMZN'], Start Date: 2020-01-01, End Date: 2020-12-31
+2024-11-03 21:35:42,539 - data_fetcher - ERROR - DATABASE_URL environment variable is missing.
