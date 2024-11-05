@@ -1,0 +1,86 @@
+import robin_stocks.robinhood as r
+import pandas as pd
+import logging
+import os
+from dotenv import load_dotenv
+from getpass import getpass
+
+# Load environment variables
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def login_robinhood():
+    """Logs into Robinhood using environment variables or prompts for credentials."""
+    username = os.getenv("ROBINHOOD_USERNAME") or input("Enter your Robinhood username: ")
+    password = os.getenv("ROBINHOOD_PASSWORD") or getpass("Enter your Robinhood password: ")
+    r.login(username, password)
+    logging.info("Successfully logged into Robinhood.")
+
+def fetch_stock_trading_history():
+    """Fetches detailed stock trading history from Robinhood."""
+    logging.info("Fetching detailed stock trading history...")
+    stock_orders = r.orders.get_all_stock_orders()
+    stock_df = pd.DataFrame(stock_orders)
+    # Ensure numeric data where applicable
+    stock_df['quantity'] = pd.to_numeric(stock_df['quantity'], errors='coerce')
+    stock_df['average_price'] = pd.to_numeric(stock_df['average_price'], errors='coerce')
+    stock_df['executed_notional'] = pd.json_normalize(stock_df['executed_notional'].apply(eval))['amount'].astype(float)
+    return stock_df
+
+def fetch_options_trading_history():
+    """Fetches detailed options trading history from Robinhood."""
+    logging.info("Fetching detailed options trading history...")
+    options_orders = r.options.get_all_option_orders()
+    options_df = pd.DataFrame(options_orders)
+    # Ensure numeric data where applicable
+    options_df['quantity'] = pd.to_numeric(options_df['quantity'], errors='coerce')
+    options_df['average_price'] = pd.to_numeric(options_df['average_price'], errors='coerce')
+    options_df['trade_value_multiplier'] = pd.to_numeric(options_df['trade_value_multiplier'], errors='coerce')
+    return options_df
+
+def calculate_metrics(df, trade_type):
+    """Calculate trading metrics for either stock or options trading data."""
+    df['value'] = df['quantity'] * df['average_price']
+    if trade_type == 'stock':
+        df['profit_loss'] = df.apply(lambda row: row['executed_notional'] if row['side'] == 'sell' else -row['executed_notional'], axis=1)
+    elif trade_type == 'option':
+        df['profit_loss'] = df.apply(lambda row: row['quantity'] * row['average_price'] * row['trade_value_multiplier'] * (1 if row['type'] == 'sell' else -1), axis=1)
+
+    total_profit_loss = df['profit_loss'].sum()
+    wins = df[df['profit_loss'] > 0]
+    losses = df[df['profit_loss'] < 0]
+    metrics = {
+        "total_profit_loss": total_profit_loss,
+        "win_rate": len(wins) / len(df) * 100 if len(df) > 0 else 0,
+        "avg_profit": wins['profit_loss'].mean() if not wins.empty else 0,
+        "avg_loss": losses['profit_loss'].mean() if not losses.empty else 0
+    }
+    return metrics
+
+def save_metrics(stock_metrics, options_metrics):
+    """Save calculated metrics to a CSV file."""
+    metrics_df = pd.DataFrame([stock_metrics, options_metrics], index=['Stocks', 'Options'])
+    metrics_df.to_csv('trading_metrics_summary.csv')
+    logging.info("Metrics saved to trading_metrics_summary.csv")
+    print(metrics_df)
+
+def main():
+    login_robinhood()
+    
+    # Fetch stock and options trading history
+    stock_df = fetch_stock_trading_history()
+    options_df = fetch_options_trading_history()
+    
+    # Calculate metrics
+    logging.info("Calculating stock trading metrics...")
+    stock_metrics = calculate_metrics(stock_df, 'stock')
+    logging.info("Calculating options trading metrics...")
+    options_metrics = calculate_metrics(options_df, 'option')
+    
+    # Save and display metrics
+    save_metrics(stock_metrics, options_metrics)
+
+if __name__ == "__main__":
+    main()

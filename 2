@@ -1,0 +1,106 @@
+import pandas as pd
+import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def load_data():
+    """Load stock and options trading history from CSV files."""
+    stock_file = 'full_stock_trading_history.csv'
+    options_file = 'full_options_trading_history.csv'
+    
+    if os.path.exists(stock_file) and os.path.exists(options_file):
+        stock_df = pd.read_csv(stock_file)
+        options_df = pd.read_csv(options_file)
+        logging.info("Stock and options data loaded successfully.")
+        return stock_df, options_df
+    else:
+        logging.error("Stock or options data files are missing.")
+        return None, None
+
+def preprocess_data(df, trade_type):
+    """Preprocess the trading data for calculations."""
+    if trade_type == 'stock':
+        df = df[['side', 'quantity', 'average_price', 'executed_notional']]
+        df['quantity'] = pd.to_numeric(df['quantity'], errors='coerce')
+        df['average_price'] = pd.to_numeric(df['average_price'], errors='coerce')
+        df['executed_notional'] = pd.json_normalize(df['executed_notional'].apply(eval))['amount'].astype(float)
+    elif trade_type == 'option':
+        df = df[['side', 'quantity', 'average_price', 'trade_value_multiplier']]
+        df['quantity'] = pd.to_numeric(df['quantity'], errors='coerce')
+        df['average_price'] = pd.to_numeric(df['average_price'], errors='coerce')
+        df['trade_value_multiplier'] = pd.to_numeric(df['trade_value_multiplier'], errors='coerce')
+    return df.dropna()
+
+def calculate_profit_loss(df):
+    """Calculate profit/loss for trades."""
+    df['value'] = df['quantity'] * df['average_price']
+    df['profit_loss'] = df.apply(
+        lambda row: row['value'] if row['side'] == 'sell' else -row['value'], axis=1
+    )
+    total_profit_loss = df['profit_loss'].sum()
+    wins = df[df['profit_loss'] > 0]
+    losses = df[df['profit_loss'] < 0]
+    
+    metrics = {
+        "total_profit_loss": total_profit_loss,
+        "win_rate": len(wins) / len(df) * 100 if len(df) > 0 else 0,
+        "avg_profit": wins['profit_loss'].mean() if not wins.empty else 0,
+        "avg_loss": losses['profit_loss'].mean() if not losses.empty else 0
+    }
+    return metrics
+
+def save_metrics(stock_metrics, options_metrics):
+    """Save calculated metrics to a CSV file."""
+    metrics_df = pd.DataFrame([stock_metrics, options_metrics], index=['Stocks', 'Options'])
+    metrics_df.to_csv('trading_metrics_summary.csv')
+    logging.info("Metrics saved to trading_metrics_summary.csv")
+    print(metrics_df)
+def fetch_stock_trading_history():
+    """Fetches detailed stock trading history from Robinhood."""
+    logging.info("Fetching detailed stock trading history...")
+    stock_orders = r.orders.get_all_stock_orders()
+    stock_df = pd.DataFrame(stock_orders)
+
+    # Ensure numeric data where applicable
+    stock_df['quantity'] = pd.to_numeric(stock_df['quantity'], errors='coerce')
+    stock_df['average_price'] = pd.to_numeric(stock_df['average_price'], errors='coerce')
+    
+    # Process 'executed_notional' safely
+    def extract_executed_notional(value):
+        if isinstance(value, str):  # If it's a string representation of a dictionary
+            try:
+                return pd.json_normalize(eval(value))['amount'].astype(float).iloc[0]
+            except (SyntaxError, KeyError, IndexError):
+                return None  # Return None if parsing fails
+        elif isinstance(value, dict):  # If it's already a dictionary
+            return value.get('amount', None)
+        return None
+
+    stock_df['executed_notional'] = stock_df['executed_notional'].apply(extract_executed_notional)
+    stock_df['executed_notional'] = pd.to_numeric(stock_df['executed_notional'], errors='coerce')
+
+    return stock_df
+
+def main():
+    # Load data
+    stock_df, options_df = load_data()
+    if stock_df is None or options_df is None:
+        return
+    
+    # Preprocess data
+    stock_df = preprocess_data(stock_df, 'stock')
+    options_df = preprocess_data(options_df, 'option')
+    
+    # Calculate metrics
+    logging.info("Calculating stock trading metrics...")
+    stock_metrics = calculate_profit_loss(stock_df)
+    logging.info("Calculating options trading metrics...")
+    options_metrics = calculate_profit_loss(options_df)
+    
+    # Save and display metrics
+    save_metrics(stock_metrics, options_metrics)
+
+if __name__ == "__main__":
+    main()
