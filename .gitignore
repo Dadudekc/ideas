@@ -1,1 +1,12 @@
+
+# .env
+DATABASE_URL=sqlite:///tsla_monitor.db
+ROBINHOOD_USERNAME=your_robinhood_username
+ROBINHOOD_PASSWORD=your_robinhood_password
+ALPACA_API_KEY=your_alpaca_api_key
+ALPACA_SECRET_KEY=your_alpaca_secret_key
+ALPACA_BASE_URL=https://paper-api.alpaca.markets
+OLLAMA_COMMAND=ollama
+LOG_FILE=tsla_price_monitor.log
+LOG_LEVEL=INFO
 .env

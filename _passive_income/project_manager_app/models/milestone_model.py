@@ -1,146 +1,143 @@
 # Filename: milestone_model.py
 # Description: Manages individual project milestones with enhanced tracking, analytics, and persistence.
 
-from datetime import datetime, timedelta
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+import sys
+import os
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float
 from sqlalchemy.orm import relationship
-from db.base import Base
 import json
 import logging
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
 
-# Configure logging for the module
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+# Dynamically set the root directory for imports and check if it's applied correctly
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+    print(f"Added project root to sys.path: {project_root}")
+else:
+    print(f"Project root already in sys.path: {project_root}")
 
-class MilestoneModel:
-    def __init__(self, title: str, deadline: datetime, description: str = "", priority: int = 1):
-        """
-        Initialize a milestone with title, deadline, description, and priority level.
+# Print sys.path for debugging
+print("Current sys.path:")
+for path in sys.path:
+    print(f" - {path}")
 
-        Args:
-            title (str): Title of the milestone.
-            deadline (datetime): Deadline for the milestone.
-            description (str): Description of the milestone.
-            priority (int): Priority level of the milestone (1=highest).
-        """
-        self.title = title
-        self.deadline = deadline
-        self.description = description
-        self.priority = priority
-        self.completed = False
-        self.date_completed = None
-        logging.info(f"Milestone '{self.title}' initialized with priority {self.priority} and deadline {self.deadline}")
+try:
+    from db.base import Base  # Import after setting sys.path
+except ModuleNotFoundError as e:
+    print(f"Error: {e}")
+    print("Ensure that 'db.base' exists at the expected path relative to 'milestone_model.py'.")
+    raise
 
-    def mark_as_completed(self):
-        """Marks the milestone as completed and logs the completion date."""
-        self.completed = True
-        self.date_completed = datetime.now()
-        logging.info(f"Milestone '{self.title}' marked as completed on {self.date_completed}")
+# Configure logging for the Milestone model
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
-    def is_overdue(self):
-        """Checks if the milestone is overdue based on the current date."""
-        overdue = not self.completed and datetime.now() > self.deadline
-        if overdue:
-            logging.warning(f"Milestone '{self.title}' is overdue.")
-        return overdue
-
-    def extend_deadline(self, additional_days: int):
-        """Extends the milestone deadline by a specified number of days."""
-        self.deadline += timedelta(days=additional_days)
-        logging.info(f"Extended deadline for milestone '{self.title}' by {additional_days} days to {self.deadline}")
-
-    def set_priority(self, new_priority: int):
-        """Updates the priority of the milestone."""
-        self.priority = new_priority
-        logging.info(f"Updated priority for milestone '{self.title}' to {self.priority}")
-
-    def get_summary(self):
-        """Returns a summary of the milestone status."""
-        status = "Completed" if self.completed else "Pending"
-        overdue = " (Overdue)" if self.is_overdue() else ""
-        return f"{self.title} - Priority: {self.priority} - {status}{overdue}"
-
-    def export_to_json(self) -> str:
-        """Exports the milestone details to JSON format."""
-        milestone_data = {
-            "title": self.title,
-            "description": self.description,
-            "deadline": self.deadline.isoformat(),
-            "priority": self.priority,
-            "completed": self.completed,
-            "date_completed": self.date_completed.isoformat() if self.date_completed else None
-        }
-        json_data = json.dumps(milestone_data, indent=4)
-        logging.info(f"Milestone '{self.title}' exported to JSON.")
-        return json_data
-
-    def __repr__(self):
-        """Provides a string representation of the milestone."""
-        return f"<Milestone(title={self.title}, completed={self.completed}, priority={self.priority}, deadline={self.deadline})>"
-
-# SQLAlchemy ORM Model
 class Milestone(Base):
     __tablename__ = 'milestones'
     
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    description = Column(String)
-    deadline = Column(DateTime)
+    description = Column(String, default="")
+    deadline = Column(DateTime, nullable=True)
     priority = Column(Integer, default=1)
     completed = Column(Boolean, default=False)
     date_completed = Column(DateTime, nullable=True)
     project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
-    
+    progress = Column(Float, default=0.0)  # Percentage of completion
+
     project = relationship("Project", back_populates="milestones")
-    tasks = relationship("Task", back_populates="milestone")
+    tasks = relationship("Task", back_populates="milestone", cascade="all, delete-orphan")
+
+    def __init__(self, name: str, description: str = "", deadline: Optional[datetime] = None, priority: int = 1, project_id: Optional[int] = None):
+        self.name = name
+        self.description = description
+        self.deadline = deadline or (datetime.utcnow() + timedelta(days=7))  # Default deadline set 7 days from now
+        self.priority = priority
+        self.project_id = project_id
+        logger.info(f"Milestone '{self.name}' initialized with priority {self.priority} and deadline {self.deadline}")
 
     def mark_as_completed(self):
         """Marks the milestone as completed and logs the completion date."""
         self.completed = True
-        self.date_completed = datetime.now()
-        logging.info(f"Milestone '{self.name}' marked as completed in database on {self.date_completed}")
+        self.date_completed = datetime.utcnow()
+        self.progress = 100.0
+        logger.info(f"Milestone '{self.name}' marked as completed on {self.date_completed}")
 
     def is_overdue(self) -> bool:
         """Checks if the milestone is overdue based on the current date."""
-        overdue = not self.completed and datetime.now() > self.deadline
+        overdue = not self.completed and datetime.utcnow() > self.deadline
         if overdue:
-            logging.warning(f"Milestone '{self.name}' in database is overdue.")
+            logger.warning(f"Milestone '{self.name}' is overdue.")
         return overdue
 
-    def __repr__(self):
+    def extend_deadline(self, additional_days: int):
+        """Extends the milestone deadline by a specified number of days."""
+        self.deadline += timedelta(days=additional_days)
+        logger.info(f"Extended deadline for milestone '{self.name}' by {additional_days} days to {self.deadline}")
+
+    def set_priority(self, new_priority: int):
+        """Updates the priority of the milestone."""
+        self.priority = new_priority
+        logger.info(f"Updated priority for milestone '{self.name}' to {self.priority}")
+
+    def update_progress(self, completion_rate: float):
+        """Updates progress and adjusts estimated completion based on progress rate."""
+        self.progress = min(max(completion_rate, 0.0), 100.0)  # Clamp between 0 and 100%
+        logger.info(f"Milestone '{self.name}' progress updated to {self.progress}%")
+
+        if self.progress >= 100.0:
+            self.mark_as_completed()
+
+    def estimated_completion(self) -> Optional[datetime]:
+        """Calculates an estimated completion date based on progress and priority."""
+        if self.completed or self.progress <= 0:
+            return None
+        days_passed = (datetime.utcnow() - (self.deadline - timedelta(days=7))).days
+        days_needed = days_passed / (self.progress / 100) if self.progress > 0 else 0
+        estimated_end = datetime.utcnow() + timedelta(days=days_needed)
+        logger.info(f"Estimated completion for milestone '{self.name}': {estimated_end}")
+        return estimated_end
+
+    def dynamic_deadline_adjustment(self):
+        """Adjusts the deadline dynamically based on priority and progress to keep milestones on track."""
+        if self.progress < 50 and self.priority == 1:
+            self.extend_deadline(3)  # High-priority tasks gain a short extension
+        elif self.progress < 50 and self.priority > 1:
+            self.extend_deadline(7)  # Lower-priority tasks gain a more generous extension
+
+    def get_summary(self) -> str:
+        """Returns a summary of the milestone status."""
+        status = "Completed" if self.completed else "Pending"
+        overdue = " (Overdue)" if self.is_overdue() else ""
+        progress_display = f"{self.progress:.1f}%"
+        summary = f"{self.name} - Priority: {self.priority} - {status}{overdue} - Progress: {progress_display}"
+        logger.info(f"Summary for milestone '{self.name}': {summary}")
+        return summary
+
+    def export_to_json(self) -> Dict[str, Any]:
+        """Exports the milestone details to a dictionary."""
+        milestone_data = {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "deadline": self.deadline.isoformat() if self.deadline else None,
+            "priority": self.priority,
+            "completed": self.completed,
+            "date_completed": self.date_completed.isoformat() if self.date_completed else None,
+            "project_id": self.project_id,
+            "progress": self.progress,
+            "estimated_completion": self.estimated_completion().isoformat() if self.estimated_completion() else None
+        }
+        logger.info(f"Milestone '{self.name}' exported to JSON format.")
+        return milestone_data
+
+    def __repr__(self) -> str:
         """Provides a string representation of the milestone ORM object."""
-        return f"<Milestone(name='{self.name}', priority={self.priority}, project_id={self.project_id})>"
-
-# Create a new milestone with a title, deadline, and description
-milestone = MilestoneModel(
-    title="Design Database Schema",
-    deadline=datetime.now() + timedelta(days=7),  # 7 days from now
-    description="Complete the design of the database schema for the project.",
-    priority=1  # Highest priority
-)
-
-# Print initial details of the milestone
-print(milestone.get_summary())  # Output includes title, priority, and status
-
-# Check if the milestone is overdue
-if milestone.is_overdue():
-    print("Milestone is overdue.")
-else:
-    print("Milestone is on track.")
-
-# Mark the milestone as completed
-milestone.mark_as_completed()
-print(milestone.get_summary())  # Should now indicate completion
-
-# Extend the milestone deadline by 3 days (in case you want to revert completion for testing)
-milestone.completed = False
-milestone.extend_deadline(3)
-print(milestone.get_summary())  # Output with new deadline and reset completion status
-
-# Update priority
-milestone.set_priority(2)
-print(f"Updated priority: {milestone.priority}")
-
-# Export milestone to JSON
-milestone_json = milestone.export_to_json()
-print("Milestone in JSON format:")
-print(milestone_json)
+        return f"<Milestone(name='{self.name}', completed={self.completed}, priority={self.priority}, deadline={self.deadline}, progress={self.progress}%)>"

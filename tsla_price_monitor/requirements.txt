@@ -1,0 +1,8 @@
+PyQt5==5.15.7
+sqlalchemy==1.4.46
+yfinance==0.2.25
+robin_stocks==1.9.12
+alpaca-trade-api==2.5.0
+python-dotenv==1.0.0
+matplotlib==3.7.1
+pandas==1.5.3

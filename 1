@@ -1,86 +1,820 @@
-import robin_stocks.robinhood as r
-import pandas as pd
-import logging
+# Filename: tsla_price_monitor.py
+# Description: Monitors TSLA daily price action, logs insights, and provides a PyQt5 GUI application with Robinhood and Alpaca integration.
+
+import sys
 import os
-from dotenv import load_dotenv
+import subprocess
+import logging
+import json
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
 from getpass import getpass
 
-# Load environment variables
+from PyQt5.QtWidgets import (
+    QApplication,
+    QWidget,
+    QVBoxLayout,
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+    QPushButton,
+    QHeaderView,
+    QLineEdit,
+    QMenu,
+    QAction,
+    QMessageBox,
+    QHBoxLayout,
+    QInputDialog
+)
+from PyQt5.QtCore import Qt, QTimer
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
+    Boolean,
+    Float,
+    create_engine
+)
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+
+import yfinance as yf
+import robin_stocks.robinhood as r
+import pandas as pd
+from alpaca_trade_api.rest import REST, TimeFrame
+from dotenv import load_dotenv
+
+# ---------------------- Load Environment Variables ----------------------
+
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# ---------------------- Logging Configuration ----------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("tsla_price_monitor.log"),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+logger = logging.getLogger(__name__)
+
+# ---------------------- Database Setup ----------------------
+
+Base = declarative_base()
+
+class Project(Base):
+    __tablename__ = 'projects'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(String, default="")
+    start_date = Column(DateTime, default=datetime.utcnow)
+    end_date = Column(DateTime, nullable=True)
+
+    milestones = relationship("Milestone", back_populates="project", cascade="all, delete-orphan")
+    insights = relationship("Insight", back_populates="project", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Project(name='{self.name}', milestones={len(self.milestones)}, insights={len(self.insights)})>"
+
+class Milestone(Base):
+    __tablename__ = 'milestones'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(String, default="")
+    deadline = Column(DateTime, nullable=True)
+    priority = Column(Integer, default=1)
+    completed = Column(Boolean, default=False)
+    date_completed = Column(DateTime, nullable=True)
+    project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
+    progress = Column(Float, default=0.0)  # Percentage of completion
+
+    project = relationship("Project", back_populates="milestones")
+    insights = relationship("Insight", back_populates="milestone", cascade="all, delete-orphan")
+
+    def __init__(self, name: str, description: str = "", deadline: Optional[datetime] = None, priority: int = 1, project_id: Optional[int] = None):
+        self.name = name
+        self.description = description
+        self.deadline = deadline or (datetime.utcnow() + timedelta(days=7))  # Default deadline set 7 days from now
+        self.priority = priority
+        self.project_id = project_id
+        logger.info(f"Milestone '{self.name}' initialized with priority {self.priority} and deadline {self.deadline}")
+
+    def mark_as_completed(self):
+        """Marks the milestone as completed and logs the completion date."""
+        self.completed = True
+        self.date_completed = datetime.utcnow()
+        self.progress = 100.0
+        logger.info(f"Milestone '{self.name}' marked as completed on {self.date_completed}")
+
+    def is_overdue(self) -> bool:
+        """Checks if the milestone is overdue based on the current date."""
+        overdue = not self.completed and datetime.utcnow() > self.deadline
+        if overdue:
+            logger.warning(f"Milestone '{self.name}' is overdue.")
+        return overdue
+
+    def extend_deadline(self, additional_days: int):
+        """Extends the milestone deadline by a specified number of days."""
+        self.deadline += timedelta(days=additional_days)
+        logger.info(f"Extended deadline for milestone '{self.name}' by {additional_days} days to {self.deadline}")
+
+    def set_priority(self, new_priority: int):
+        """Updates the priority of the milestone."""
+        self.priority = new_priority
+        logger.info(f"Updated priority for milestone '{self.name}' to {self.priority}")
+
+    def update_progress(self, completion_rate: float):
+        """Updates progress and adjusts estimated completion based on progress rate."""
+        self.progress = min(max(completion_rate, 0.0), 100.0)  # Clamp between 0 and 100%
+        logger.info(f"Milestone '{self.name}' progress updated to {self.progress}%")
+
+        if self.progress >= 100.0:
+            self.mark_as_completed()
+
+    def estimated_completion(self) -> Optional[datetime]:
+        """Calculates an estimated completion date based on progress and priority."""
+        if self.completed or self.progress <= 0:
+            return None
+        days_passed = (datetime.utcnow() - (self.deadline - timedelta(days=7))).days
+        days_needed = days_passed / (self.progress / 100) if self.progress > 0 else 0
+        estimated_end = datetime.utcnow() + timedelta(days=days_needed)
+        logger.info(f"Estimated completion for milestone '{self.name}': {estimated_end}")
+        return estimated_end
+
+    def dynamic_deadline_adjustment(self):
+        """Adjusts the deadline dynamically based on priority and progress to keep milestones on track."""
+        if self.progress < 50 and self.priority == 1:
+            self.extend_deadline(3)  # High-priority tasks gain a short extension
+        elif self.progress < 50 and self.priority > 1:
+            self.extend_deadline(7)  # Lower-priority tasks gain a more generous extension
+
+    def get_summary(self) -> str:
+        """Returns a summary of the milestone status."""
+        status = "Completed" if self.completed else "Pending"
+        overdue = " (Overdue)" if self.is_overdue() else ""
+        progress_display = f"{self.progress:.1f}%"
+        summary = f"{self.name} - Priority: {self.priority} - {status}{overdue} - Progress: {progress_display}"
+        logger.info(f"Summary for milestone '{self.name}': {summary}")
+        return summary
+
+    def export_to_json(self) -> Dict[str, Any]:
+        """Exports the milestone details to a dictionary."""
+        milestone_data = {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "deadline": self.deadline.isoformat() if self.deadline else None,
+            "priority": self.priority,
+            "completed": self.completed,
+            "date_completed": self.date_completed.isoformat() if self.date_completed else None,
+            "project_id": self.project_id,
+            "progress": self.progress,
+            "estimated_completion": self.estimated_completion().isoformat() if self.estimated_completion() else None
+        }
+        logger.info(f"Milestone '{self.name}' exported to JSON format.")
+        return milestone_data
+
+    def __repr__(self) -> str:
+        """Provides a string representation of the milestone ORM object."""
+        return f"<Milestone(name='{self.name}', completed={self.completed}, priority={self.priority}, deadline={self.deadline}, progress={self.progress}%)>"
+
+class Insight(Base):
+    __tablename__ = 'insights'
+
+    id = Column(Integer, primary_key=True)
+    content = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
+    milestone_id = Column(Integer, ForeignKey('milestones.id'), nullable=True)
+
+    project = relationship("Project", back_populates="insights")
+    milestone = relationship("Milestone", back_populates="insights")
+
+    def __init__(self, content: str, project_id: int, milestone_id: Optional[int] = None):
+        self.content = content
+        self.project_id = project_id
+        self.milestone_id = milestone_id
+        logger.info(f"Insight created: {self.content}")
+
+    def export_to_json(self) -> Dict[str, Any]:
+        """Exports the insight details to a dictionary."""
+        insight_data = {
+            "id": self.id,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat(),
+            "project_id": self.project_id,
+            "milestone_id": self.milestone_id,
+        }
+        logger.info(f"Insight '{self.content}' exported to JSON format.")
+        return insight_data
+
+    def __repr__(self) -> str:
+        """Provides a string representation of the insight ORM object."""
+        return f"<Insight(content='{self.content}', timestamp={self.timestamp})>"
+
+# Create the SQLite database
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///tsla_monitor.db")
+engine = create_engine(DATABASE_URL, echo=False)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base.metadata.create_all(bind=engine)
+
+# ---------------------- Robinhood Integration ----------------------
 
 def login_robinhood():
     """Logs into Robinhood using environment variables or prompts for credentials."""
     username = os.getenv("ROBINHOOD_USERNAME") or input("Enter your Robinhood username: ")
     password = os.getenv("ROBINHOOD_PASSWORD") or getpass("Enter your Robinhood password: ")
-    r.login(username, password)
-    logging.info("Successfully logged into Robinhood.")
+    try:
+        login = r.login(username, password)
+        if login:
+            logger.info("Successfully logged into Robinhood.")
+        else:
+            logger.error("Failed to log into Robinhood.")
+    except Exception as e:
+        logger.error(f"Error logging into Robinhood: {e}")
 
-def fetch_stock_trading_history():
-    """Fetches detailed stock trading history from Robinhood."""
-    logging.info("Fetching detailed stock trading history...")
-    stock_orders = r.orders.get_all_stock_orders()
-    stock_df = pd.DataFrame(stock_orders)
-    # Ensure numeric data where applicable
-    stock_df['quantity'] = pd.to_numeric(stock_df['quantity'], errors='coerce')
-    stock_df['average_price'] = pd.to_numeric(stock_df['average_price'], errors='coerce')
-    stock_df['executed_notional'] = pd.json_normalize(stock_df['executed_notional'].apply(eval))['amount'].astype(float)
-    return stock_df
-
-def fetch_options_trading_history():
+def fetch_options_trading_history() -> Optional[pd.DataFrame]:
     """Fetches detailed options trading history from Robinhood."""
-    logging.info("Fetching detailed options trading history...")
-    options_orders = r.options.get_all_option_orders()
-    options_df = pd.DataFrame(options_orders)
-    # Ensure numeric data where applicable
-    options_df['quantity'] = pd.to_numeric(options_df['quantity'], errors='coerce')
-    options_df['average_price'] = pd.to_numeric(options_df['average_price'], errors='coerce')
-    options_df['trade_value_multiplier'] = pd.to_numeric(options_df['trade_value_multiplier'], errors='coerce')
-    return options_df
+    try:
+        options_orders = r.options.get_all_option_orders()
+        options_df = pd.DataFrame(options_orders)
+        # Ensure numeric data where applicable
+        options_df['quantity'] = pd.to_numeric(options_df['quantity'], errors='coerce')
+        options_df['average_price'] = pd.to_numeric(options_df['average_price'], errors='coerce')
+        options_df['trade_value_multiplier'] = pd.to_numeric(options_df['trade_value_multiplier'], errors='coerce')
+        logger.info("Fetched options trading history from Robinhood.")
+        return options_df
+    except Exception as e:
+        logger.error(f"Error fetching options trading history: {e}")
+        return None
 
-def calculate_metrics(df, trade_type):
+def calculate_metrics(df: pd.DataFrame, trade_type: str) -> Dict[str, Any]:
     """Calculate trading metrics for either stock or options trading data."""
-    df['value'] = df['quantity'] * df['average_price']
-    if trade_type == 'stock':
-        df['profit_loss'] = df.apply(lambda row: row['executed_notional'] if row['side'] == 'sell' else -row['executed_notional'], axis=1)
-    elif trade_type == 'option':
-        df['profit_loss'] = df.apply(lambda row: row['quantity'] * row['average_price'] * row['trade_value_multiplier'] * (1 if row['type'] == 'sell' else -1), axis=1)
+    try:
+        df['value'] = df['quantity'] * df['average_price']
+        if trade_type == 'stock':
+            df['profit_loss'] = df.apply(lambda row: row['executed_notional'] if row['side'] == 'sell' else -row['executed_notional'], axis=1)
+        elif trade_type == 'option':
+            df['profit_loss'] = df.apply(lambda row: row['quantity'] * row['average_price'] * row['trade_value_multiplier'] * (1 if row['type'] == 'sell' else -1), axis=1)
 
-    total_profit_loss = df['profit_loss'].sum()
-    wins = df[df['profit_loss'] > 0]
-    losses = df[df['profit_loss'] < 0]
-    metrics = {
-        "total_profit_loss": total_profit_loss,
-        "win_rate": len(wins) / len(df) * 100 if len(df) > 0 else 0,
-        "avg_profit": wins['profit_loss'].mean() if not wins.empty else 0,
-        "avg_loss": losses['profit_loss'].mean() if not losses.empty else 0
-    }
-    return metrics
+        total_profit_loss = df['profit_loss'].sum()
+        wins = df[df['profit_loss'] > 0]
+        losses = df[df['profit_loss'] < 0]
+        metrics = {
+            "total_profit_loss": total_profit_loss,
+            "win_rate": len(wins) / len(df) * 100 if len(df) > 0 else 0,
+            "avg_profit": wins['profit_loss'].mean() if not wins.empty else 0,
+            "avg_loss": losses['profit_loss'].mean() if not losses.empty else 0
+        }
+        logger.info(f"Calculated {trade_type} trading metrics.")
+        return metrics
+    except Exception as e:
+        logger.error(f"Error calculating metrics: {e}")
+        return {}
 
-def save_metrics(stock_metrics, options_metrics):
+def save_metrics(stock_metrics: Dict[str, Any], options_metrics: Dict[str, Any]):
     """Save calculated metrics to a CSV file."""
-    metrics_df = pd.DataFrame([stock_metrics, options_metrics], index=['Stocks', 'Options'])
-    metrics_df.to_csv('trading_metrics_summary.csv')
-    logging.info("Metrics saved to trading_metrics_summary.csv")
-    print(metrics_df)
+    try:
+        metrics_df = pd.DataFrame([stock_metrics, options_metrics], index=['Stocks', 'Options'])
+        metrics_df.to_csv('trading_metrics_summary.csv')
+        logger.info("Metrics saved to trading_metrics_summary.csv")
+        print(metrics_df)
+    except Exception as e:
+        logger.error(f"Error saving metrics: {e}")
+
+# ---------------------- Alpaca Integration ----------------------
+
+class AlpacaIntegration:
+    """
+    Handles interaction with the Alpaca API for trading functionalities.
+    """
+    def __init__(self):
+        self.api_key = os.getenv("ALPACA_API_KEY")
+        self.secret_key = os.getenv("ALPACA_SECRET_KEY")
+        self.base_url = "https://paper-api.alpaca.markets"  # Use paper trading URL
+        try:
+            self.api = REST(self.api_key, self.secret_key, self.base_url, api_version='v2')
+            account = self.api.get_account()
+            logger.info(f"Connected to Alpaca API. Account status: {account.status}")
+        except Exception as e:
+            logger.error(f"Error connecting to Alpaca API: {e}")
+
+    def fetch_account_info(self) -> Optional[Dict[str, Any]]:
+        """Fetches account information from Alpaca."""
+        try:
+            account = self.api.get_account()
+            account_info = {
+                "status": account.status,
+                "cash": account.cash,
+                "portfolio_value": account.portfolio_value,
+                "last_equity": account.last_equity
+            }
+            logger.info("Fetched account information from Alpaca.")
+            return account_info
+        except Exception as e:
+            logger.error(f"Error fetching account info from Alpaca: {e}")
+            return None
+
+    def fetch_stock_data(self, symbol: str = "TSLA") -> Optional[Dict[str, Any]]:
+        """Fetches recent stock data from Alpaca."""
+        try:
+            barset = self.api.get_barset(symbol, TimeFrame.Day, limit=5)
+            bars = barset[symbol]
+            stock_data = {
+                "symbol": symbol,
+                "open": bars[-1].o,
+                "high": bars[-1].h,
+                "low": bars[-1].l,
+                "close": bars[-1].c,
+                "volume": bars[-1].v,
+                "time": bars[-1].t.isoformat()
+            }
+            logger.info(f"Fetched stock data from Alpaca: {stock_data}")
+            return stock_data
+        except Exception as e:
+            logger.error(f"Error fetching stock data from Alpaca: {e}")
+            return None
+
+    def place_order(self, symbol: str, qty: int, side: str, type_: str, time_in_force: str):
+        """Places an order via Alpaca."""
+        try:
+            order = self.api.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                type=type_,
+                time_in_force=time_in_force
+            )
+            logger.info(f"Placed order: {order}")
+            return order
+        except Exception as e:
+            logger.error(f"Error placing order via Alpaca: {e}")
+            return None
+
+# ---------------------- Mistral Integration ----------------------
+
+# Ollama Integration
+import subprocess
+import logging
+
+class OllamaIntegration:
+    """
+    Handles interaction with the Ollama AI model via CLI.
+    Ensure Ollama is installed and accessible via the command line.
+    """
+    def __init__(self):
+        self.command = "ollama"  # Using the ollama CLI
+
+    def run_query(self, prompt: str) -> str:
+        """Runs a query using Ollama and returns the response."""
+        try:
+            result = subprocess.run(
+                [self.command, "run", "--prompt", prompt],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            response = result.stdout.strip()
+            logging.info(f"Ollama response: {response}")
+            return response
+        except subprocess.CalledProcessError as e:
+            error_msg = f"Error running Ollama: {e.stderr.strip()}"
+            logging.error(error_msg)
+            return error_msg
+        except FileNotFoundError:
+            error_msg = "Ollama CLI not found. Ensure it is installed and in your PATH."
+            logging.error(error_msg)
+            return error_msg
+
+# ---------------------- PyQt5 GUI Components ----------------------
+
+class TaskBoard(QWidget):
+    """
+    TaskBoard Class
+
+    Displays a dynamic and interactive list of tasks with options for filtering, sorting, editing, 
+    and priority-based color-coding.
+    """
+
+    PRIORITY_MAP = {"High": 1, "Medium": 2, "Low": 3}
+
+    def __init__(self, session, alpaca: AlpacaIntegration):
+        super().__init__()
+        self.session = session
+        self.alpaca = alpaca
+        self.mistral = OllamaIntegration()
+
+        # Main layout
+        self.layout = QVBoxLayout()
+
+        # Title Label
+        self.task_board_label = QLabel("Task Board - Manage and Track Your Tasks")
+        self.task_board_label.setAlignment(Qt.AlignCenter)
+        self.task_board_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #0055A5; margin-bottom: 15px;")
+
+        # Search bar for filtering tasks
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search tasks by name, priority, or status...")
+        self.search_bar.textChanged.connect(self.filter_tasks)
+
+        # Task Table Setup
+        self.task_table = QTableWidget(0, 3)  # Task, Priority, Status
+        self.task_table.setHorizontalHeaderLabels(["Task", "Priority", "Status"])
+        self.task_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.task_table.horizontalHeader().setHighlightSections(False)
+        self.task_table.verticalHeader().setVisible(False)
+        self.task_table.setSortingEnabled(True)
+        self.task_table.itemDoubleClicked.connect(self.edit_task)
+        self.task_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.task_table.customContextMenuRequested.connect(self.open_context_menu)
+
+        # Add Sample Tasks from Database
+        self.load_tasks_from_db()
+
+        # Add Task Button
+        self.add_task_button = QPushButton("Add Task")
+        self.add_task_button.clicked.connect(self.add_task_dialog)
+
+        # Alpaca Account Info Button
+        self.alpaca_info_button = QPushButton("View Alpaca Account Info")
+        self.alpaca_info_button.clicked.connect(self.view_alpaca_account_info)
+
+        # Alpaca Fetch Stock Data Button
+        self.alpaca_fetch_button = QPushButton("Fetch TSLA Stock Data from Alpaca")
+        self.alpaca_fetch_button.clicked.connect(self.fetch_alpaca_stock_data)
+
+        # Add Task and Alpaca Buttons to a horizontal layout
+        self.button_layout = QHBoxLayout()
+        self.button_layout.addWidget(self.add_task_button)
+        self.button_layout.addWidget(self.alpaca_info_button)
+        self.button_layout.addWidget(self.alpaca_fetch_button)
+
+        # Add widgets to layout
+        self.layout.addWidget(self.task_board_label)
+        self.layout.addWidget(self.search_bar)
+        self.layout.addWidget(self.task_table)
+        self.layout.addLayout(self.button_layout)
+        self.setLayout(self.layout)
+
+    def load_tasks_from_db(self):
+        """Loads tasks from the database into the table."""
+        projects = self.session.query(Project).all()
+        for project in projects:
+            for milestone in project.milestones:
+                for insight in milestone.insights:
+                    self.add_task(insight.content, self.get_priority_label(milestone.priority), "Pending")
+
+    def get_priority_label(self, priority: int) -> str:
+        """Returns the priority label based on the priority value."""
+        for label, value in self.PRIORITY_MAP.items():
+            if value == priority:
+                return label
+        return "Low"
+
+    def add_task(self, name, priority, status):
+        """Adds a new task to the task table with color-coded priority."""
+        row = self.task_table.rowCount()
+        self.task_table.insertRow(row)
+
+        # Create items with tooltip and center alignment
+        task_item = QTableWidgetItem(name)
+        task_item.setToolTip(f"Task: {name}")
+        priority_item = QTableWidgetItem(priority)
+        priority_item.setToolTip(f"Priority: {priority}")
+        status_item = QTableWidgetItem(status)
+        status_item.setToolTip(f"Status: {status}")
+
+        for item in (task_item, priority_item, status_item):
+            item.setTextAlignment(Qt.AlignCenter)
+
+        # Apply color-coding based on priority
+        self.apply_priority_styling(priority_item, priority)
+
+        # Add items to the table
+        self.task_table.setItem(row, 0, task_item)
+        self.task_table.setItem(row, 1, priority_item)
+        self.task_table.setItem(row, 2, status_item)
+
+    def apply_priority_styling(self, item, priority):
+        """Applies color styling based on task priority."""
+        color = {"High": "#FF6666", "Medium": "#FFCC66", "Low": "#66FF66"}.get(priority, "#FFFFFF")
+        item.setBackground(QtGui.QColor(color))
+
+    def edit_task(self, item):
+        """Enables editing of tasks on double-click."""
+        self.task_table.editItem(item)
+        logger.info(f"Editing task '{item.text()}'")
+
+    def update_task(self, row, name=None, priority=None, status=None):
+        """Updates an existing task with new details."""
+        if name:
+            self.task_table.setItem(row, 0, QTableWidgetItem(name))
+        if priority:
+            priority_item = QTableWidgetItem(priority)
+            self.apply_priority_styling(priority_item, priority)
+            self.task_table.setItem(row, 1, priority_item)
+        if status:
+            self.task_table.setItem(row, 2, QTableWidgetItem(status))
+        self.task_table.resizeColumnsToContents()
+
+    def sort_by_priority(self):
+        """Sorts the task table by the Priority column based on the PRIORITY_MAP."""
+        self.task_table.sortItems(1, Qt.AscendingOrder)
+
+    def filter_tasks(self):
+        """Filters tasks by name, priority, or status."""
+        query = self.search_bar.text().lower()
+        for row in range(self.task_table.rowCount()):
+            match = False
+            for column in range(self.task_table.columnCount()):
+                item = self.task_table.item(row, column)
+                if item and query in item.text().lower():
+                    match = True
+                    break
+            self.task_table.setRowHidden(row, not match)
+
+    def open_context_menu(self, position):
+        """Context menu for additional task actions."""
+        menu = QMenu()
+
+        # Mark as Completed Action
+        mark_completed = QAction("Mark as Completed", self)
+        mark_completed.triggered.connect(lambda: self.update_task_status(self.task_table.currentRow(), "Completed"))
+        menu.addAction(mark_completed)
+
+        # Generate Insight via Mistral Action
+        generate_insight = QAction("Generate Insight via Mistral", self)
+        generate_insight.triggered.connect(lambda: self.generate_insight(self.task_table.currentRow()))
+        menu.addAction(generate_insight)
+
+        # Delete Task Action
+        delete_task_action = QAction("Delete Task", self)
+        delete_task_action.triggered.connect(lambda: self.delete_task(self.task_table.currentRow()))
+        menu.addAction(delete_task_action)
+
+        menu.exec_(self.task_table.viewport().mapToGlobal(position))
+
+    def update_task_status(self, row, status):
+        """Updates the status of a task."""
+        if row >= 0:
+            self.task_table.setItem(row, 2, QTableWidgetItem(status))
+            logger.info(f"Task status updated to '{status}' for row {row}")
+            QMessageBox.information(self, "Task Updated", f"Task status updated to '{status}'.")
+
+    def delete_task(self, row):
+        """Deletes a task from the task table."""
+        if row >= 0:
+            task_name = self.task_table.item(row, 0).text()
+            self.task_table.removeRow(row)
+            logger.info(f"Task '{task_name}' at row {row} deleted.")
+            QMessageBox.information(self, "Task Deleted", f"Task '{task_name}' has been deleted.")
+
+    def generate_insight(self, row):
+        """Generates an insight for a task using Mistral."""
+        if row >= 0:
+            task_name = self.task_table.item(row, 0).text()
+            prompt = f"Provide an insightful analysis for the task: {task_name}"
+            response = self.mistral.run_query(prompt)
+            if response and "Error" not in response:
+                # Add insight to the database
+                insight = Insight(content=response, project_id=1)  # Assuming project_id=1 for simplicity
+                self.session.add(insight)
+                self.session.commit()
+                # Add insight to the table
+                self.add_task(response, "Low", "Insight Generated")
+                QMessageBox.information(self, "Insight Generated", f"Insight: {response}")
+            else:
+                QMessageBox.warning(self, "Mistral Error", f"Failed to generate insight: {response}")
+
+    def add_task_dialog(self):
+        """Opens a dialog to add a new task."""
+        task_name, ok = QInputDialog.getText(self, "Add Task", "Task Name:")
+        if ok and task_name:
+            priority, ok = QInputDialog.getItem(self, "Select Priority", "Priority:", ["High", "Medium", "Low"], 1, False)
+            if ok and priority:
+                self.add_task(task_name, priority, "Pending")
+                # Add to database
+                insight = Insight(content=task_name, project_id=1)  # Assuming project_id=1
+                self.session.add(insight)
+                self.session.commit()
+                logger.info(f"New task added: {task_name} with priority {priority}")
+
+    # Alpaca Related Methods
+
+    def view_alpaca_account_info(self):
+        """Displays Alpaca account information."""
+        account_info = self.alpaca.fetch_account_info()
+        if account_info:
+            info_str = (
+                f"Status: {account_info['status']}\n"
+                f"Cash: ${account_info['cash']}\n"
+                f"Portfolio Value: ${account_info['portfolio_value']}\n"
+                f"Last Equity: ${account_info['last_equity']}"
+            )
+            QMessageBox.information(self, "Alpaca Account Info", info_str)
+        else:
+            QMessageBox.warning(self, "Alpaca Error", "Failed to fetch Alpaca account information.")
+
+    def fetch_alpaca_stock_data(self):
+        """Fetches and displays TSLA stock data from Alpaca."""
+        stock_data = self.alpaca.fetch_stock_data("TSLA")
+        if stock_data:
+            data_str = (
+                f"Symbol: {stock_data['symbol']}\n"
+                f"Open: ${stock_data['open']}\n"
+                f"High: ${stock_data['high']}\n"
+                f"Low: ${stock_data['low']}\n"
+                f"Close: ${stock_data['close']}\n"
+                f"Volume: {stock_data['volume']}\n"
+                f"Time: {stock_data['time']}"
+            )
+            QMessageBox.information(self, "Alpaca TSLA Stock Data", data_str)
+        else:
+            QMessageBox.warning(self, "Alpaca Error", "Failed to fetch TSLA stock data from Alpaca.")
+
+# ---------------------- MainWindow ----------------------
+
+class MainWindow(QWidget):
+    """
+    MainWindow Class
+
+    The main window of the application containing the TaskBoard and other potential widgets.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("TSLA Price Monitor")
+        self.setGeometry(100, 100, 1000, 700)
+
+        # Database session
+        self.session = SessionLocal()
+
+        # Ensure a project exists
+        self.ensure_project_exists()
+
+        # Alpaca Integration
+        self.alpaca = AlpacaIntegration()
+
+        # Main layout
+        self.layout = QVBoxLayout()
+
+        # Task Board
+        self.task_board = TaskBoard(self.session, self.alpaca)
+        self.layout.addWidget(self.task_board)
+
+        # Add layout to the window
+        self.setLayout(self.layout)
+
+    def ensure_project_exists(self):
+        """Ensures that a default project exists in the database."""
+        project = self.session.query(Project).filter_by(name="TSLA Monitoring").first()
+        if not project:
+            project = Project(name="TSLA Monitoring", description="Monitor daily price action of TSLA.")
+            self.session.add(project)
+            self.session.commit()
+            logger.info("Default project 'TSLA Monitoring' created.")
+
+# ---------------------- Data Fetcher Service ----------------------
+
+class DataFetcher:
+    """
+    Fetches daily price data for TSLA using yfinance.
+    """
+
+    def __init__(self):
+        self.symbol = "TSLA"
+
+    def fetch_daily_price(self) -> Optional[Dict[str, Any]]:
+        """Fetches the latest daily price data for TSLA."""
+        try:
+            stock = yf.Ticker(self.symbol)
+            data = stock.history(period="1d")
+            if not data.empty:
+                latest = data.iloc[-1]
+                price_info = {
+                    "date": latest.name.strftime("%Y-%m-%d"),
+                    "open": latest['Open'],
+                    "high": latest['High'],
+                    "low": latest['Low'],
+                    "close": latest['Close'],
+                    "volume": latest['Volume']
+                }
+                logger.info(f"Fetched daily price for {self.symbol}: {price_info}")
+                return price_info
+            else:
+                logger.warning(f"No data fetched for {self.symbol}.")
+                return None
+        except Exception as e:
+            logger.error(f"Error fetching data for {self.symbol}: {e}")
+            return None
+
+# ---------------------- Insight Logger ----------------------
+
+def log_insight(session, content: str, project_id: int, milestone_id: Optional[int] = None):
+    """Logs an insight to the database."""
+    try:
+        insight = Insight(content=content, project_id=project_id, milestone_id=milestone_id)
+        session.add(insight)
+        session.commit()
+        logger.info(f"Insight logged: {content}")
+    except Exception as e:
+        logger.error(f"Error logging insight: {e}")
+
+# ---------------------- Robinhood and Alpaca Trading Metrics ----------------------
+
+def main_trading_metrics():
+    """Handles trading metrics for Robinhood and Alpaca."""
+    # Initialize session
+    session = SessionLocal()
+
+    # Login to Robinhood
+    login_robinhood()
+
+    # Fetch Robinhood options trading history
+    options_df = fetch_options_trading_history()
+
+    # Calculate Robinhood options metrics
+    if options_df is not None and not options_df.empty:
+        options_metrics = calculate_metrics(options_df, 'option')
+    else:
+        options_metrics = {}
+        logger.warning("No options data to calculate metrics for Robinhood.")
+
+    # Initialize Alpaca Integration
+    alpaca = AlpacaIntegration()
+
+    # Fetch Alpaca account info and stock data
+    account_info = alpaca.fetch_account_info()
+    alpaca_stock_data = alpaca.fetch_stock_data("TSLA")
+
+    # Calculate Alpaca stock metrics (Example: profit/loss)
+    # Note: Implement actual trading history fetching and metrics as needed
+    stock_metrics = {}
+    if alpaca_stock_data:
+        # Placeholder for actual metrics calculation
+        stock_metrics = {
+            "total_profit_loss": 0,
+            "win_rate": 0,
+            "avg_profit": 0,
+            "avg_loss": 0
+        }
+        logger.info("Calculated Alpaca stock trading metrics (Placeholder).")
+    else:
+        logger.warning("No stock data to calculate metrics for Alpaca.")
+
+    # Save metrics to CSV
+    save_metrics(stock_metrics, options_metrics)
+
+    # Close session
+    session.close()
+
+# ---------------------- PyQt5 GUI Application ----------------------
+
+def main_gui():
+    """Initializes and runs the PyQt5 GUI application."""
+    # Initialize the application
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+
+    # Initialize Data Fetcher
+    data_fetcher = DataFetcher()
+
+    # Schedule daily data fetching (for testing, set to every 60 seconds)
+    fetch_timer = QTimer()
+    fetch_timer.timeout.connect(lambda: fetch_and_log_data(data_fetcher, window.session))
+    fetch_timer.start(60 * 1000)  # 60 seconds for quick testing
+
+    # Fetch immediately on startup
+    fetch_and_log_data(data_fetcher, window.session)
+
+    sys.exit(app.exec_())
+
+def fetch_and_log_data(data_fetcher, session):
+    """Fetches TSLA data and logs insights."""
+    data = data_fetcher.fetch_daily_price()
+    if data:
+        insight_content = (
+            f"TSLA closed at ${data['close']:.2f} on {data['date']}. "
+            f"High: ${data['high']:.2f}, Low: ${data['low']:.2f}, Volume: {data['volume']}"
+        )
+        log_insight(session, insight_content, project_id=1)  # Assuming project_id=1
+    else:
+        logger.warning("No data fetched to log insight.")
+
+# ---------------------- Main Application Logic ----------------------
 
 def main():
-    login_robinhood()
-    
-    # Fetch stock and options trading history
-    stock_df = fetch_stock_trading_history()
-    options_df = fetch_options_trading_history()
-    
-    # Calculate metrics
-    logging.info("Calculating stock trading metrics...")
-    stock_metrics = calculate_metrics(stock_df, 'stock')
-    logging.info("Calculating options trading metrics...")
-    options_metrics = calculate_metrics(options_df, 'option')
-    
-    # Save and display metrics
-    save_metrics(stock_metrics, options_metrics)
+    """Main entry point for the application."""
+    # Run the GUI in a separate thread or process if needed
+    main_gui()
 
 if __name__ == "__main__":
     main()

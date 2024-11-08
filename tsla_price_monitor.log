@@ -1,0 +1,14 @@
+2024-11-06 15:56:44,482 - INFO - Default project 'TSLA Monitoring' created.
+2024-11-06 15:56:44,942 - INFO - Connected to Alpaca API. Account status: ACTIVE
+2024-11-06 15:57:06,852 - INFO - Fetched daily price for TSLA: {'date': '2024-11-06', 'open': 284.7250061035156, 'high': 289.5899963378906, 'low': 275.6199951171875, 'close': 288.5299987792969, 'volume': 162930634.0}
+2024-11-06 15:57:06,854 - INFO - Insight created: TSLA closed at $288.53 on 2024-11-06. High: $289.59, Low: $275.62, Volume: 162930634.0
+2024-11-06 15:57:06,862 - INFO - Insight logged: TSLA closed at $288.53 on 2024-11-06. High: $289.59, Low: $275.62, Volume: 162930634.0
+2024-11-06 15:57:45,348 - INFO - Fetched daily price for TSLA: {'date': '2024-11-06', 'open': 284.7250061035156, 'high': 289.5899963378906, 'low': 275.6199951171875, 'close': 288.5299987792969, 'volume': 162930634.0}
+2024-11-06 15:57:45,349 - INFO - Insight created: TSLA closed at $288.53 on 2024-11-06. High: $289.59, Low: $275.62, Volume: 162930634.0
+2024-11-06 15:57:45,356 - INFO - Insight logged: TSLA closed at $288.53 on 2024-11-06. High: $289.59, Low: $275.62, Volume: 162930634.0
+2024-11-06 15:58:45,319 - INFO - Fetched daily price for TSLA: {'date': '2024-11-06', 'open': 284.7250061035156, 'high': 289.5899963378906, 'low': 275.6199951171875, 'close': 288.5299987792969, 'volume': 162930634.0}
+2024-11-06 15:58:45,320 - INFO - Insight created: TSLA closed at $288.53 on 2024-11-06. High: $289.59, Low: $275.62, Volume: 162930634.0
+2024-11-06 15:58:45,328 - INFO - Insight logged: TSLA closed at $288.53 on 2024-11-06. High: $289.59, Low: $275.62, Volume: 162930634.0
+2024-11-06 15:59:45,342 - INFO - Fetched daily price for TSLA: {'date': '2024-11-06', 'open': 284.7250061035156, 'high': 289.5899963378906, 'low': 275.6199951171875, 'close': 288.5299987792969, 'volume': 162930634.0}
+2024-11-06 15:59:45,343 - INFO - Insight created: TSLA closed at $288.53 on 2024-11-06. High: $289.59, Low: $275.62, Volume: 162930634.0
+2024-11-06 15:59:45,350 - INFO - Insight logged: TSLA closed at $288.53 on 2024-11-06. High: $289.59, Low: $275.62, Volume: 162930634.0
