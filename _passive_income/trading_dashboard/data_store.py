@@ -61,8 +61,13 @@ from data.data_store_interface import DataStoreInterface
 env_path = project_root / '.env'
 if env_path.exists():
     load_dotenv(dotenv_path=env_path)
+    # Check if variables are loading correctly
+    print("DB Host:", os.getenv("POSTGRES_HOST"))
+    print("DB User:", os.getenv("POSTGRES_USER"))
+    print("DB Name:", os.getenv("POSTGRES_DBNAME"))
+    print("DB Password:", os.getenv("POSTGRES_PASSWORD"))
 else:
-    logging.warning(f"No .env file found at {env_path}. Environment variables will be used as-is.")
+    print(f"Warning: No .env file found at {env_path}. Environment variables will be used as-is.")
 
 # -------------------------------------------------------------------
 # Section 5: Logging Configuration
@@ -79,6 +84,8 @@ logger = setup_logging(
     file_log_level=logging.DEBUG,
     feedback_loop_enabled=True
 )
+
+logger.info(f"Attempting to load environment variables from {env_path}")
 
 # -------------------------------------------------------------------
 # Section 6: SQLAlchemy Setup
@@ -97,7 +104,7 @@ DATABASE_URL = (
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
     f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DBNAME}"
 )
-logger.info(f"DATABASE_URL: {DATABASE_URL}")  # Log the DATABASE_URL for debugging
+logger.info(f"Constructed DATABASE_URL: {DATABASE_URL.replace(POSTGRES_PASSWORD, '****')}")
 
 def get_db_engine() -> Engine:
     """

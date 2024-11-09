@@ -1,0 +1,7 @@
+2024-11-08 17:51:05,740 - model_training_utils - INFO - Feedback loop enabled for error/performance tracking.
+2024-11-08 17:51:05,741 - model_training_utils - INFO - Logging setup successful with feedback loop enabled!
+2024-11-08 17:51:05,741 - model_training_utils - DEBUG - Testing debug level logging.
+2024-11-08 17:51:05,741 - model_training_utils - INFO - Testing info level logging.
+2024-11-08 17:51:05,742 - model_training_utils - WARNING - Testing warning level logging.
+2024-11-08 17:51:05,742 - model_training_utils - ERROR - Testing error level logging.
+2024-11-08 17:51:05,742 - model_training_utils - CRITICAL - Testing critical level logging.
