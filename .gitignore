@@ -1,5 +1,202 @@
+# ----------------------------------------
+# Python-specific ignored files
+# ----------------------------------------
 
-# .env
+__pycache__/                 # Byte-compiled Python directories
+*.py[cod]                    # Compiled Python files
+*.class                      # Compiled class files
+*$py.class                   # Byte-compiled files for various Python versions
+*.pyo                        # Optimized bytecode files
+*.so                         # C extension files
+
+# ----------------------------------------
+# Environment and Secret Files
+# ----------------------------------------
+
+.env                          # Environment variable file (for secrets)
+.python-version               # Pyenv version file
+.venv/                        # Virtual environment directory (local settings)
+*.env                         # Other environment files
+
+# ----------------------------------------
+# Virtual Environment Directories
+# ----------------------------------------
+
+# Global virtual environment directories
+env/
+venv/
+ENV/
+env.bak/
+*/env/
+*/venv/
+*env/
+*venv/
+
+# ----------------------------------------
+# Distribution / Packaging
+# ----------------------------------------
+
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.whl
+pip-log.txt                  # Logs from pip installs
+pip-delete-this-directory.txt # Logs from pip
+
+# ----------------------------------------
+# PyInstaller Files
+# ----------------------------------------
+
+*.manifest                    # PyInstaller manifest
+*.spec                        # PyInstaller spec
+
+# ----------------------------------------
+# Testing and Coverage Reports
+# ----------------------------------------
+
+htmlcov/
+.tox/
+.nox/
+.coverage                     # Coverage reports
+.coverage.*                   # Specific coverage files
+.cache                        # Testing cache
+nosetests.xml
+coverage.xml
+*.cover                       # Python coverage files
+*.py,cover                    # Coverage for individual files
+.hypothesis/                  # Hypothesis testing cache
+.pytest_cache/                # Pytest cache
+cover/                        # Coverage directory
+
+# ----------------------------------------
+# Documentation and Build Files
+# ----------------------------------------
+
+docs/_build/                  # Sphinx documentation build output
+docs/_build/doctrees
+docs/_build/html
+/site                         # MkDocs build output
+
+# ----------------------------------------
+# Jupyter and IPython
+# ----------------------------------------
+
+.ipynb_checkpoints/           # Jupyter Notebook checkpoints
+profile_default/              # IPython default profile
+ipython_config.py             # IPython config file
+
+# ----------------------------------------
+# Django & Flask Framework Files
+# ----------------------------------------
+
+*.log                         # Log files
+local_settings.py             # Django local settings
+db.sqlite3                    # SQLite database for Django
+instance/                     # Flask instance folder
+.webassets-cache              # Flask web assets cache
+
+# ----------------------------------------
+# Scrapy
+# ----------------------------------------
+
+.scrapy                       # Scrapy cache
+
+# ----------------------------------------
+# Celery Files
+# ----------------------------------------
+
+celerybeat-schedule           # Celery beat schedule
+
+# ----------------------------------------
+# Spyder IDE
+# ----------------------------------------
+
+.spyderproject                # Spyder project settings
+.spyproject                   # Spyder additional settings
+
+# ----------------------------------------
+# Rope IDE
+# ----------------------------------------
+
+.ropeproject                  # Rope project settings
+
+# ----------------------------------------
+# mypy
+# ----------------------------------------
+
+.mypy_cache/                  # mypy cache files
+.dmypy.json                   # mypy daemon JSON
+dmypy.json                    # mypy daemon JSON
+
+# ----------------------------------------
+# Pyre Type Checker
+# ----------------------------------------
+
+.pyre/                        # Pyre cache
+
+# ----------------------------------------
+# Rust Files (for hybrid projects)
+# ----------------------------------------
+
+/target/                      # Rust build artifacts (general)
+/TradingRobotRust/target/     # Rust build artifacts for TradingRobotRust
+
+# ----------------------------------------
+# Databases
+# ----------------------------------------
+
+*.db                          # General database files (e.g., SQLite)
+*.sqlite3                     # SQLite files
+
+# ----------------------------------------
+# Large Directories for Model Files and Data
+# ----------------------------------------
+
+SavedModels/                  # Directory for saved machine learning models
+data/yfinance/preprocessed/   # Preprocessed YFinance data
+logs/                         # Log files
+data/databases/               # Databases or large data files
+cache/                        # General cache
+config.ini                    # General config file for projects
+
+# ----------------------------------------
+# Model Files and Extensions
+# ----------------------------------------
+
+*.pkl                         # Pickle files for serialized models
+*.keras                       # Keras model files
+*.h5                          # HDF5 model files (e.g., for TensorFlow/Keras)
+
+# ----------------------------------------
+# System-specific and IDE-specific Files
+# ----------------------------------------
+
+.DS_Store                     # macOS system file
+Thumbs.db                     # Windows system file
+.vscode/                      # Visual Studio Code settings (optional)
+.idea/                        # IntelliJ IDEA settings (optional)
+*.swp                         # Vim swap files
+*.swo                         # Vim swap files
+*.swn                         # Vim swap files
+
+# ----------------------------------------
+# Optional - List of Ignored Environment Variables for Reference
+# ----------------------------------------
+
 DATABASE_URL=sqlite:///tsla_monitor.db
 ROBINHOOD_USERNAME=your_robinhood_username
 ROBINHOOD_PASSWORD=your_robinhood_password
@@ -9,4 +206,3 @@ ALPACA_BASE_URL=https://paper-api.alpaca.markets
 OLLAMA_COMMAND=ollama
 LOG_FILE=tsla_price_monitor.log
 LOG_LEVEL=INFO
-.env
