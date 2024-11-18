@@ -1,0 +1,38 @@
+mode: "paper_trade"
+symbol: "TSLA"
+timeframe: "1d"  # Updated to 1d to match the latest configuration
+limit: 1000
+strategy:
+  adx_length: 14
+  atr_length: 14
+  ema_length: 8
+  macd_fast: 12
+  macd_signal: 9
+  macd_slow: 26
+  profit_target_percent: 15.0
+  risk_percent: 0.5
+  rsi_length: 14
+  rsi_overbought: 70
+  rsi_oversold: 30
+  stop_multiplier: 2.0
+  trail_multiplier: 1.5
+  volume_threshold_length: 20
+  vwap_session: "RTH"
+project_root: "C:/Projects/#TODO/ideas/_passive_income/ArmyOfRobots/My1strobot"
+log_dir: "C:/Projects/#TODO/ideas/_passive_income/ArmyOfRobots/My1strobot/logs"
+logging:
+  log_level: "DEBUG"  # Changed to DEBUG for more detailed logs
+  log_file: "robot.log"  # Relative to log_dir
+  max_log_size: 5242880
+  backup_count: 2
+data_fetching:
+  fetch_retries: 5
+  backoff_factor: 2
+  cache_strategy: "memory"
+email_notifications:
+  recipients:
+    - "your_email@example.com"
+data_sources:
+  - "Yahoo Finance"
+  - "Finnhub"
+  - "NewsAPI"

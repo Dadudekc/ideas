@@ -1,0 +1,74 @@
+# Byte-compiled / compiled files
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+
+# Testing artifacts
+.pytest_cache/
+test_logs/
+
+# Logs and reports
+*.log
+logs/
+
+# Configuration files
+.env
+config.yaml
+1config.yaml
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+*.DS_Store
+
+# IDE / Editor folders
+.idea/
+.vscode/
+
+# Git-specific artifacts
+*.orig
+*.rej
+
+# Backup files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+# Bytecode and cache
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+
+# Testing and logs
+*.log
+logs/
+test_logs/
+.pytest_cache/
+
+# Config and secrets
+.env
+*.yaml
+
+# IDE/editor settings
+.idea/
+.vscode/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Backup files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+
+# OS-specific
+.DS_Store
+Thumbs.db
