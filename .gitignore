@@ -206,5 +206,9 @@ ALPACA_BASE_URL=https://paper-api.alpaca.markets
 OLLAMA_COMMAND=ollama
 LOG_FILE=tsla_price_monitor.log
 LOG_LEVEL=INFO
+<<<<<<< HEAD
 .env
 .env
+=======
+.env.env
+>>>>>>> 50a9a60dec628fdc161d934fa8ff98681a699ac9
