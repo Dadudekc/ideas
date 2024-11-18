@@ -112,8 +112,8 @@ def load_config(config_file: str) -> Dict[str, Any]:
         load_dotenv()
         # Environment variables take precedence
         env_config = {key: os.getenv(key) for key in os.environ if key in [
-            "ALPACA_API_KEY",
-            "ALPACA_SECRET_KEY",
+            "ALPACA_KEY_PLACEHOLDER",
+            "ALPACA_SECRET_PLACEHOLDER",
             "ALPACA_BASE_URL",
             "FINNHUB_API_KEY",
             "NEWSAPI_API_KEY",
@@ -221,8 +221,8 @@ class DataFetchUtils:
 
         :return: Initialized Alpaca API client or None if credentials are missing.
         """
-        api_key = os.getenv('ALPACA_API_KEY') or self.config.get('ALPACA_API_KEY')
-        secret_key = os.getenv('ALPACA_SECRET_KEY') or self.config.get('ALPACA_SECRET_KEY')
+        api_key = os.getenv('ALPACA_KEY_PLACEHOLDER') or self.config.get('ALPACA_KEY_PLACEHOLDER')
+        secret_key = os.getenv('ALPACA_SECRET_PLACEHOLDER') or self.config.get('ALPACA_SECRET_PLACEHOLDER')
         base_url = os.getenv('ALPACA_BASE_URL') or self.config.get('ALPACA_BASE_URL', 'https://paper-api.alpaca.markets')
 
         if not all([api_key, secret_key]):
