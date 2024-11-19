@@ -1,0 +1,76 @@
+.env
+# Byte-compiled files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.pdb
+
+# Logs
+logs/
+*.log
+*.out
+*.err
+
+# Environment files
+.env
+*.env
+
+# Dependency directories
+venv/
+env/
+build/
+dist/
+*.egg-info/
+
+# IDE-specific files
+.vscode/
+.idea/
+*.swp
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Tests and coverage
+coverage/
+*.cover
+*.coverage
+*.cov
+*.gcda
+*.gcno
+*.gcov
+htmlcov/
+.tox/
+
+# Temporary and backup files
+*.bak
+*.tmp
+*.temp
+*~
+*.orig
+
+# Configuration and settings
+*.cfg
+*.ini
+*.yaml
+*.yml
+
+# Databases
+*.sqlite
+*.db
+*.sql
+*.tar
+
+# Specific tooling
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Other potentially sensitive files
+*.key
+*.crt
+*.pem
+*.json
+config.json
