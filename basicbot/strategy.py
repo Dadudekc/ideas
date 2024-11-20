@@ -7,8 +7,9 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class StrategyConfig(BaseModel):
     ema_length: int = Field(default=8, ge=1, description="Length of EMA calculation.")
@@ -26,10 +27,12 @@ class StrategyConfig(BaseModel):
     profit_target: float = Field(default=15.0, ge=1.0, le=100.0, description="Profit target percent.")
     stop_loss_multiplier: float = Field(default=2.0, ge=1.0, description="Stop loss multiplier based on ATR.")
 
+
 class TradeSignal:
     BUY = 'BUY'
     SELL = 'SELL'
     HOLD = 'HOLD'
+
 
 class Strategy:
     """
@@ -42,25 +45,34 @@ class Strategy:
         self.config = config
         self.logger = logger
 
+    def validate_dataframe(self, df: pd.DataFrame):
+        """
+        Validate the input DataFrame for required columns and sufficient data.
+        """
+        required_columns = {'close', 'high', 'low', 'volume'}
+        missing = required_columns - set(df.columns)
+        if missing:
+            self.logger.error(f"Missing required columns: {missing}")
+            raise ValueError(f"Missing required columns: {missing}. DataFrame must contain: {required_columns}")
+
+        min_required = max(
+            self.config.ema_length,
+            self.config.rsi_length,
+            self.config.macd_slow_window,
+            self.config.bollinger_window,
+            self.config.adx_window,
+            self.config.atr_window
+        )
+        if len(df) < min_required:
+            self.logger.error("Insufficient data rows for calculating indicators.")
+            raise ValueError("Insufficient data rows for calculating indicators.")
+
     def calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Calculate technical indicators required for the strategy.
         """
         self.logger.debug("Calculating indicators.")
-
-        required_columns = {'close', 'high', 'low', 'volume'}
-        if not required_columns.issubset(df.columns):
-            missing = required_columns - set(df.columns)
-            self.logger.error(f"Missing required columns: {missing}")
-            raise ValueError(f"DataFrame must contain columns: {required_columns}")
-
-        if len(df) < max(
-            self.config.ema_length, self.config.rsi_length,
-            self.config.macd_slow_window, self.config.bollinger_window,
-            self.config.adx_window, self.config.atr_window
-        ):
-            self.logger.error("Insufficient data rows for calculating indicators.")
-            raise ValueError("Insufficient data rows for calculating indicators.")
+        self.validate_dataframe(df)
 
         # Exponential Moving Average
         df['ema'] = ta.trend.EMAIndicator(close=df['close'], window=self.config.ema_length).ema_indicator()
@@ -69,26 +81,38 @@ class Strategy:
         df['rsi'] = ta.momentum.RSIIndicator(close=df['close'], window=self.config.rsi_length).rsi()
 
         # Moving Average Convergence Divergence
-        macd = ta.trend.MACD(close=df['close'],
-                             window_slow=self.config.macd_slow_window,
-                             window_fast=self.config.macd_fast_window,
-                             window_sign=self.config.macd_signal_window)
+        macd = ta.trend.MACD(
+            close=df['close'],
+            window_slow=self.config.macd_slow_window,
+            window_fast=self.config.macd_fast_window,
+            window_sign=self.config.macd_signal_window
+        )
         df['macd'] = macd.macd()
         df['macd_signal'] = macd.macd_signal()
         df['macd_diff'] = macd.macd_diff()
 
         # Average Directional Index
-        adx = ta.trend.ADXIndicator(high=df['high'], low=df['low'], close=df['close'], window=self.config.adx_window)
+        adx = ta.trend.ADXIndicator(
+            high=df['high'],
+            low=df['low'],
+            close=df['close'],
+            window=self.config.adx_window
+        )
         df['adx'] = adx.adx()
 
         # Volume Weighted Average Price
         df['vwap'] = (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
 
         # 20-period Simple Moving Average of Volume
-        df['volume_sma_20'] = df['volume'].rolling(window=20).mean()
+        df['volume_sma_20'] = df['volume'].rolling(window=20, min_periods=1).mean()
 
         # Average True Range
-        atr = ta.volatility.AverageTrueRange(high=df['high'], low=df['low'], close=df['close'], window=self.config.atr_window)
+        atr = ta.volatility.AverageTrueRange(
+            high=df['high'],
+            low=df['low'],
+            close=df['close'],
+            window=self.config.atr_window
+        )
         df['atr'] = atr.average_true_range()
 
         self.logger.debug("Indicators calculated successfully.")
@@ -112,6 +136,8 @@ class Strategy:
             (df['macd_diff'] > 0) &
             (df['macd_diff'].shift(1) <= 0)  # Crossover condition
         )
+        
+        self.logger.info(f"Long Condition:\n{long_condition}")
 
         # Short Condition
         short_condition = (
@@ -124,6 +150,8 @@ class Strategy:
             (df['adx'] > 20) &
             (df['volume'] > df['volume_sma_20'])
         )
+        
+        self.logger.info(f"Short Condition:\n{short_condition}")
 
         df.loc[long_condition, 'signal'] = TradeSignal.BUY
         df.loc[short_condition, 'signal'] = TradeSignal.SELL
@@ -139,17 +167,18 @@ class Strategy:
 
         # Initialize tracking columns
         df['position'] = 0  # 1 for LONG, -1 for SHORT, 0 for FLAT
-        df['entry_price'] = 0.0
-        df['exit_price'] = 0.0
+        df['entry_price'] = pd.NA
+        df['exit_price'] = pd.NA
         df['strategy_returns'] = 0.0
         df['equity'] = 100000.0  # Starting equity
+
         equity = 100000.0
         position = 0
         entry_price = 0.0
         stop_loss_price = 0.0
         profit_target_price = 0.0
 
-        for idx in range(len(df)):
+        for idx in df.index:
             signal = df.at[idx, 'signal']
             price = df.at[idx, 'close']
             atr = df.at[idx, 'atr']
@@ -157,36 +186,42 @@ class Strategy:
             self.logger.debug(f"Index {idx}: Signal={signal}, Position={position}, Equity={equity}")
 
             # Exit logic
-            if position == 1:  # LONG position
+            if position != 0:
                 exit_trade = False
                 pnl = 0.0
 
-                if signal == TradeSignal.SELL:
-                    # Exit LONG on SELL signal
-                    pnl = price - entry_price
-                    exit_trade = True
-                    self.logger.debug(f"Exit LONG signal at index {idx}")
-                elif price <= stop_loss_price:
-                    # Exit LONG on Stop Loss
-                    pnl = price - entry_price
-                    exit_trade = True
-                    self.logger.debug(f"Stop Loss hit for LONG at index {idx}")
-                elif price >= profit_target_price:
-                    # Exit LONG on Profit Target
-                    pnl = price - entry_price
-                    exit_trade = True
-                    self.logger.debug(f"Profit Target hit for LONG at index {idx}")
+                if position == 1:  # Currently in LONG
+                    if (
+                        signal == TradeSignal.SELL or
+                        price <= stop_loss_price or
+                        price >= profit_target_price
+                    ):
+                        pnl = price - entry_price
+                        exit_trade = True
+                        self.logger.debug(
+                            f"Exiting LONG at index {idx}, Price={price}, PnL={pnl:.2f}"
+                        )
+                elif position == -1:  # Currently in SHORT
+                    if (
+                        signal == TradeSignal.BUY or
+                        price >= stop_loss_price or
+                        price <= profit_target_price
+                    ):
+                        pnl = entry_price - price
+                        exit_trade = True
+                        self.logger.debug(
+                            f"Exiting SHORT at index {idx}, Price={price}, PnL={pnl:.2f}"
+                        )
 
                 if exit_trade:
                     equity += pnl
-                    df.at[idx, 'exit_price'] = price  # Update exit price
+                    df.at[idx, 'exit_price'] = price
                     df.at[idx, 'strategy_returns'] = pnl
-                    position = 0  # Exit the trade
+                    position = 0  # Reset position to flat
                     entry_price = 0.0
                     stop_loss_price = 0.0
                     profit_target_price = 0.0
                     df.at[idx, 'position'] = position
-                    self.logger.debug(f"Exited LONG at index {idx}, Price={price}, PnL={pnl:.2f}")
                     df.at[idx, 'equity'] = equity
                     continue  # Skip entry logic in this iteration
 
@@ -199,7 +234,21 @@ class Strategy:
                     profit_target_price = price + price * (self.config.profit_target / 100)
                     df.at[idx, 'entry_price'] = entry_price
                     df.at[idx, 'position'] = position
-                    self.logger.debug(f"Entered LONG at index {idx}, Price={price}, StopLoss={stop_loss_price}, ProfitTarget={profit_target_price}")
+                    self.logger.debug(
+                        f"Entered LONG at index {idx}, Price={price}, "
+                        f"StopLoss={stop_loss_price}, ProfitTarget={profit_target_price}"
+                    )
+                elif signal == TradeSignal.SELL:
+                    position = -1
+                    entry_price = price
+                    stop_loss_price = price + atr * self.config.stop_loss_multiplier
+                    profit_target_price = price - price * (self.config.profit_target / 100)
+                    df.at[idx, 'entry_price'] = entry_price
+                    df.at[idx, 'position'] = position
+                    self.logger.debug(
+                        f"Entered SHORT at index {idx}, Price={price}, "
+                        f"StopLoss={stop_loss_price}, ProfitTarget={profit_target_price}"
+                    )
 
             # Update equity for the current row
             df.at[idx, 'equity'] = equity

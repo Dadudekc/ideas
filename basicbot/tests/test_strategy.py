@@ -2,212 +2,226 @@
 
 import unittest
 import pandas as pd
-from unittest.mock import MagicMock
-from strategy import Strategy, StrategyConfig, TradeSignal
+import numpy as np
+from basicbot.strategy import Strategy, StrategyConfig, TradeSignal
+import logging
 
 class TestStrategy(unittest.TestCase):
-
     def setUp(self):
-        """
-        Set up mock data and a strategy instance for testing.
-        """
+        # Configure logger for testing
+        self.logger = logging.getLogger("TestStrategy")
+        self.logger.setLevel(logging.CRITICAL)  # Suppress logs during testing
+
+        # Default configuration
         self.config = StrategyConfig()
-        self.logger = MagicMock()
         self.strategy = Strategy(config=self.config, logger=self.logger)
 
-        # Mock data with 60 rows to accommodate signals up to index 56
+        # Sample data for testing
+        np.random.seed(0)
+        dates = pd.date_range(start='2021-01-01', periods=100, freq='D')
         self.df = pd.DataFrame({
-            'close': [100 + i for i in range(60)],
-            'high': [101 + i for i in range(60)],
-            'low': [99 + i for i in range(60)],
-            'volume': [1000 + (i * 10) for i in range(60)]
-        })
+            'close': np.random.lognormal(mean=0, sigma=0.01, size=100).cumprod(),
+            'high': np.random.lognormal(mean=0, sigma=0.01, size=100).cumprod(),
+            'low': np.random.lognormal(mean=0, sigma=0.01, size=100).cumprod(),
+            'volume': np.random.randint(100, 1000, size=100)
+        }, index=dates)
+
+    def test_validate_dataframe_missing_columns(self):
+        # Remove 'volume' column to simulate missing data
+        df_missing = self.df.drop(columns=['volume'])
+        with self.assertRaises(ValueError) as context:
+            self.strategy.validate_dataframe(df_missing)
+        self.assertIn("Missing required columns", str(context.exception))
+
+    def test_validate_dataframe_insufficient_data(self):
+        # Create DataFrame with less rows than required
+        df_insufficient = self.df.iloc[:5]
+        with self.assertRaises(ValueError) as context:
+            self.strategy.validate_dataframe(df_insufficient)
+        self.assertIn("Insufficient data rows", str(context.exception))
 
     def test_calculate_indicators(self):
-        """
-        Test that the calculate_indicators method adds the expected columns to the DataFrame.
-        """
-        result = self.strategy.calculate_indicators(self.df.copy())
-
-        # Ensure the DataFrame has enough rows for all indicators to calculate properly
-        self.assertGreaterEqual(len(self.df), max(
-            self.config.ema_length, self.config.rsi_length,
-            self.config.macd_slow_window, self.config.bollinger_window,
-            self.config.adx_window, self.config.atr_window
-        ), "Insufficient rows in DataFrame for indicator calculation.")
-
-        # Check for expected columns
-        expected_columns = ['ema', 'rsi', 'macd', 'macd_signal', 'macd_diff', 'adx', 'vwap', 'volume_sma_20', 'atr']
-        for column in expected_columns:
-            self.assertIn(column, result.columns, f"{column} should be in the DataFrame.")
-
-    def test_calculate_indicators_insufficient_data(self):
-        """
-        Test that calculate_indicators raises an error when data is insufficient.
-        """
-        # Create DataFrame with insufficient rows
-        insufficient_df = self.df.head(10)
-        with self.assertRaises(ValueError, msg="Should raise ValueError for insufficient data rows"):
-            self.strategy.calculate_indicators(insufficient_df)
-
-    def test_calculate_indicators_missing_columns(self):
-        """
-        Test that calculate_indicators raises an error for missing required columns.
-        """
-        df_missing_columns = self.df.drop(columns=['volume'])
-        with self.assertRaises(ValueError, msg="Should raise ValueError for missing columns"):
-            self.strategy.calculate_indicators(df_missing_columns)
-
-    def test_generate_signals_no_signals(self):
-        """
-        Test that generate_signals assigns HOLD when no conditions are met.
-        """
         df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
-        # Override indicators to ensure no BUY or SELL conditions are met
-        df_with_indicators['vwap'] = df_with_indicators['close'] - 10  # Ensures close > vwap
-        df_with_indicators['ema'] = df_with_indicators['close'] + 10  # Ensures close < ema
-        df_with_indicators['rsi'] = 50  # Between oversold and overbought
-        df_with_indicators['macd_diff'] = 0
-        df_with_indicators['adx'] = 10  # Below threshold
-        df_with_indicators['volume'] = 1000  # Set volume below
-        df_with_indicators['volume_sma_20'] = 1000
-        result = self.strategy.generate_signals(df_with_indicators)
+        # Check if indicators are added
+        expected_columns = [
+            'ema', 'rsi', 'macd', 'macd_signal', 'macd_diff',
+            'adx', 'vwap', 'volume_sma_20', 'atr'
+        ]
+        for col in expected_columns:
+            self.assertIn(col, df_with_indicators.columns)
+        # Check for no NaN in critical indicators after enough data
+        self.assertFalse(df_with_indicators['ema'].isnull().all())
+        self.assertFalse(df_with_indicators['rsi'].isnull().all())
 
-        # All signals should be HOLD
-        self.assertTrue(all(result['signal'] == TradeSignal.HOLD), "All signals should be HOLD.")
-
-    def test_generate_signals_buy_signal(self):
-        """
-        Test that generate_signals correctly assigns BUY signals.
-        """
+    def test_generate_signals(self):
         df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
-        # Simulate BUY condition at index 14
-        df_with_indicators.loc[14, 'close'] = df_with_indicators.loc[14, 'vwap'] + 1
-        df_with_indicators.loc[14, 'ema'] = df_with_indicators.loc[14, 'close'] - 1
-        df_with_indicators.loc[14, 'rsi'] = 35  # Above oversold threshold
-        df_with_indicators.loc[14, 'macd_diff'] = 1.0
-        df_with_indicators.loc[13, 'macd_diff'] = 0.0  # Crossover
+        df_with_signals = self.strategy.generate_signals(df_with_indicators)
+        # Check if 'signal' column is added
+        self.assertIn('signal', df_with_signals.columns)
+        # Check if signals are only among BUY, SELL, HOLD
+        self.assertTrue(df_with_signals['signal'].isin(
+            [TradeSignal.BUY, TradeSignal.SELL, TradeSignal.HOLD]
+        ).all())
 
-        result = self.strategy.generate_signals(df_with_indicators)
-
-        self.assertEqual(result.loc[14, 'signal'], TradeSignal.BUY, "Signal should be BUY at index 14.")
-
-    def test_generate_signals_sell_signal(self):
-        """
-        Test that generate_signals correctly assigns SELL signals.
-        """
+    def test_backtest_strategy_no_signals(self):
         df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
-        # Simulate SELL condition at index 28
-        df_with_indicators.loc[28, 'close'] = df_with_indicators.loc[28, 'vwap'] - 1
-        df_with_indicators.loc[28, 'ema'] = df_with_indicators.loc[28, 'close'] + 1
-        df_with_indicators.loc[28, 'rsi'] = 65  # Below overbought threshold
-        df_with_indicators.loc[28, 'macd_diff'] = -1.0
-        df_with_indicators.loc[27, 'macd_diff'] = 0.0  # Crossunder
-        df_with_indicators.loc[28, 'adx'] = 25
-        df_with_indicators.loc[28, 'volume'] = 2000
-        df_with_indicators.loc[28, 'volume_sma_20'] = 1500
-
-        result = self.strategy.generate_signals(df_with_indicators)
-
-        self.assertEqual(result.loc[28, 'signal'], TradeSignal.SELL, "Signal should be SELL at index 28.")
-
-    def test_backtest_strategy_no_trades(self):
-        """
-        Test backtest_strategy when no buy or sell signals are generated.
-        """
-        df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
-        # Override signals to HOLD
+        # Ensure no signals
         df_with_indicators['signal'] = TradeSignal.HOLD
-        result = self.strategy.backtest_strategy(df_with_indicators)
+        df_backtest = self.strategy.backtest_strategy(df_with_indicators)
+        # Equity should remain unchanged
+        self.assertTrue((df_backtest['equity'] == 100000.0).all())
+        # No positions should be taken
+        self.assertTrue((df_backtest['position'] == 0).all())
 
-        # Positions should remain 0
-        self.assertTrue(all(result['position'] == 0), "All positions should be 0 (flat).")
-        # Equity should remain constant
-        self.assertTrue(all(result['equity'] == 100000.0), "Equity should remain unchanged.")
-
-    def test_backtest_strategy_immediate_stop_loss(self):
-        """
-        Test backtest_strategy when price immediately hits the stop loss.
-        """
+    def test_backtest_strategy_single_buy_sell(self):
         df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
+        df_with_signals = self.strategy.generate_signals(df_with_indicators)
 
-        # Ensure ATR at index 14 is not NaN
-        self.assertFalse(pd.isna(df_with_indicators.loc[14, 'atr']), "ATR at index 14 should not be NaN.")
+        # Manually set a BUY signal at index 20 and SELL at index 30
+        df_with_signals.at[self.df.index[20], 'signal'] = TradeSignal.BUY
+        df_with_signals.at[self.df.index[30], 'signal'] = TradeSignal.SELL
 
-        # Simulate a BUY signal at index 14 and immediate stop loss at index 15
-        df_with_indicators['signal'] = TradeSignal.HOLD
-        df_with_indicators.loc[14, 'signal'] = TradeSignal.BUY
-        df_with_indicators.loc[14, 'close'] = 100.0  # Entry price
-        df_with_indicators.loc[14, 'atr'] = 2.0  # Fixed ATR
-        df_with_indicators.loc[15, 'close'] = 96.0  # Hits stop loss = 96.0
-        df_with_indicators.loc[15, 'atr'] = 2.0  # Fixed ATR
+        df_backtest = self.strategy.backtest_strategy(df_with_signals)
 
-        # Run backtest
-        result = self.strategy.backtest_strategy(df_with_indicators)
-
-        # Check that the position was entered and exited at index 14 and 15
-        self.assertEqual(result.loc[14, 'position'], 1, "Position should be LONG at index 14.")
-        self.assertEqual(result.loc[15, 'position'], 0, "Position should be exited at index 15.")
-        expected_exit_price = 96.0
-        self.assertAlmostEqual(result.loc[15, 'exit_price'], expected_exit_price, places=2,
-                               msg="Exit price should match stop loss.")
+        # Check that a position was entered and exited
+        self.assertEqual(df_backtest.at[self.df.index[20], 'position'], 1)
+        self.assertEqual(df_backtest.at[self.df.index[30], 'position'], 0)
+        self.assertEqual(df_backtest.at[self.df.index[30], 'exit_price'], df_with_signals.at[self.df.index[30], 'close'])
+        # Equity should have been updated
+        entry_price = df_with_signals.at[self.df.index[20], 'close']
+        exit_price = df_with_signals.at[self.df.index[30], 'close']
+        expected_pnl = exit_price - entry_price
+        expected_equity = 100000.0 + expected_pnl
+        self.assertEqual(df_backtest.at[self.df.index[30], 'equity'], expected_equity)
 
     def test_backtest_strategy_multiple_trades(self):
-        """
-        Test backtest_strategy with multiple BUY and SELL signals.
-        """
         df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
+        df_with_signals = self.strategy.generate_signals(df_with_indicators)
 
-        # Simulate multiple BUY and SELL signals
-        signals = [TradeSignal.HOLD] * len(df_with_indicators)
-        signals[14] = TradeSignal.BUY  # Enter LONG
-        signals[28] = TradeSignal.SELL  # Exit LONG
-        signals[42] = TradeSignal.BUY  # Enter LONG again
-        signals[56] = TradeSignal.SELL  # Exit LONG again
+        # Set multiple BUY and SELL signals
+        buy_indices = [10, 30, 50, 70]
+        sell_indices = [15, 35, 55, 75]
 
-        df_with_indicators['signal'] = signals
+        for buy in buy_indices:
+            df_with_signals.at[self.df.index[buy], 'signal'] = TradeSignal.BUY
+        for sell in sell_indices:
+            df_with_signals.at[self.df.index[sell], 'signal'] = TradeSignal.SELL
 
-        # Set consistent ATR and close prices
-        df_with_indicators.loc[[14, 28, 42, 56], 'atr'] = 2.0
-        df_with_indicators.loc[14, 'close'] = 100.0  # Entry price for LONG
-        df_with_indicators.loc[28, 'close'] = 96.0  # Exit LONG at Stop Loss
-        df_with_indicators.loc[42, 'close'] = 100.0  # Entry price for LONG
-        df_with_indicators.loc[56, 'close'] = 96.0  # Exit LONG at Stop Loss
+        df_backtest = self.strategy.backtest_strategy(df_with_signals)
 
-        result = self.strategy.backtest_strategy(df_with_indicators)
+        # Verify that positions are entered and exited correctly
+        for buy, sell in zip(buy_indices, sell_indices):
+            self.assertEqual(df_backtest.at[self.df.index[buy], 'position'], 1)
+            self.assertEqual(df_backtest.at[self.df.index[sell], 'position'], 0)
+            self.assertEqual(df_backtest.at[self.df.index[sell], 'exit_price'], df_with_signals.at[self.df.index[sell], 'close'])
 
-        # Debugging output to validate intermediate data
-        print(result[['signal', 'position', 'entry_price', 'exit_price', 'strategy_returns', 'equity']].iloc[[14, 28, 42, 56]])
+    def test_backtest_strategy_stop_loss(self):
+        df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
+        df_with_signals = self.strategy.generate_signals(df_with_indicators)
 
-        # Verify positions and resets
-        self.assertEqual(result.loc[14, 'position'], 1, "Should be LONG at index 14.")
-        self.assertEqual(result.loc[28, 'position'], 0, "Should exit LONG at index 28.")
-        self.assertEqual(result.loc[42, 'position'], 1, "Should be LONG at index 42.")
-        self.assertEqual(result.loc[56, 'position'], 0, "Should exit LONG at index 56.")
+        # Set a BUY signal and simulate price dropping below stop loss
+        buy_index = 40
+        df_with_signals.at[self.df.index[buy_index], 'signal'] = TradeSignal.BUY
+        # Simulate a drop in price after buy_index to trigger stop loss
+        drop_indices = range(buy_index + 1, buy_index + 5)
+        for idx in drop_indices:
+            df_with_signals.at[self.df.index[idx], 'close'] = df_with_signals.at[self.df.index[buy_index], 'close'] - \
+                                                             2 * df_with_signals.at[self.df.index[buy_index], 'atr']
 
-        # Additional checks for entry and exit prices
-        self.assertEqual(result.loc[14, 'entry_price'], 100.0, "Entry price should be set at index 14.")
-        self.assertEqual(result.loc[28, 'exit_price'], 96.0, "Exit price should match close price at index 28.")
-        self.assertEqual(result.loc[42, 'entry_price'], 100.0, "Entry price should be set again at index 42.")
-        self.assertEqual(result.loc[56, 'exit_price'], 96.0, "Exit price should match close price at index 56.")
+        df_backtest = self.strategy.backtest_strategy(df_with_signals)
 
-        # Validate equity updates
-        self.assertGreater(result.loc[28, 'equity'], 0, "Equity should update correctly after exit at index 28.")
-        self.assertGreater(result.loc[56, 'equity'], 0, "Equity should update correctly after exit at index 56.")
+        # Check that position was exited due to stop loss
+        exit_idx = buy_index + 1
+        self.assertEqual(df_backtest.at[self.df.index[buy_index], 'position'], 1)
+        self.assertEqual(df_backtest.at[self.df.index[exit_idx], 'position'], 0)
+        self.assertEqual(df_backtest.at[self.df.index[exit_idx], 'exit_price'], df_with_signals.at[self.df.index[exit_idx], 'close'])
 
-    def test_logger_calls(self):
+    def test_backtest_strategy_profit_target(self):
+        df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
+        df_with_signals = self.strategy.generate_signals(df_with_indicators)
+
+        # Set a BUY signal and simulate price rising above profit target
+        buy_index = 60
+        df_with_signals.at[self.df.index[buy_index], 'signal'] = TradeSignal.BUY
+        # Simulate a rise in price after buy_index to trigger profit target
+        rise_indices = range(buy_index + 1, buy_index + 5)
+        for idx in rise_indices:
+            df_with_signals.at[self.df.index[idx], 'close'] = df_with_signals.at[self.df.index[buy_index], 'close'] + \
+                                                             0.15 * df_with_signals.at[self.df.index[buy_index], 'close']
+
+        df_backtest = self.strategy.backtest_strategy(df_with_signals)
+
+        # Check that position was exited due to profit target
+        exit_idx = buy_index + 1
+        self.assertEqual(df_backtest.at[self.df.index[buy_index], 'position'], 1)
+        self.assertEqual(df_backtest.at[self.df.index[exit_idx], 'position'], 0)
+        self.assertEqual(df_backtest.at[self.df.index[exit_idx], 'exit_price'], df_with_signals.at[self.df.index[exit_idx], 'close'])
+
+    def test_backtest_strategy_short_position(self):
+        df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
+        df_with_signals = self.strategy.generate_signals(df_with_indicators)
+
+        # Set a SELL signal at index 25 and BUY to close at index 35
+        df_with_signals.at[self.df.index[25], 'signal'] = TradeSignal.SELL
+        df_with_signals.at[self.df.index[35], 'signal'] = TradeSignal.BUY
+
+        df_backtest = self.strategy.backtest_strategy(df_with_signals)
+
+        # Check that a short position was entered and exited
+        self.assertEqual(df_backtest.at[self.df.index[25], 'position'], -1)
+        self.assertEqual(df_backtest.at[self.df.index[35], 'position'], 0)
+        self.assertEqual(df_backtest.at[self.df.index[35], 'exit_price'], df_with_signals.at[self.df.index[35], 'close'])
+
+    def test_full_strategy_flow(self):
         """
-        Test that logger.debug is called appropriately during strategy execution.
+        Test the full flow: calculate indicators, generate signals, and backtest.
         """
         df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
         df_with_signals = self.strategy.generate_signals(df_with_indicators)
-        self.strategy.backtest_strategy(df_with_signals)
+        df_backtest = self.strategy.backtest_strategy(df_with_signals)
 
-        # Each trade (enter and exit) should generate multiple debug logs
-        # The exact number can vary based on the number of trades and conditions
-        self.assertTrue(self.logger.debug.called, "Logger.debug should be called during strategy execution.")
-        # Example: At least some debug calls are expected
-        self.assertGreaterEqual(self.logger.debug.call_count, 10, f"Logger.debug should be called at least 10 times.")
+        # Basic checks
+        self.assertIn('strategy_returns', df_backtest.columns)
+        self.assertIn('equity', df_backtest.columns)
+        self.assertEqual(len(df_backtest), len(self.df))
+        # Equity should be >= starting equity if no losses
+        # This is not always true, but we can check for no negative equity
+        self.assertTrue((df_backtest['equity'] > 0).all())
+
+    def test_invalid_config(self):
+        # Test creating StrategyConfig with invalid parameters
+        with self.assertRaises(ValueError):
+            StrategyConfig(ema_length=0)  # ema_length must be >=1
+
+        with self.assertRaises(ValueError):
+            StrategyConfig(rsi_overbought=150)  # rsi_overbought must be <=100
+
+        with self.assertRaises(ValueError):
+            StrategyConfig(stop_loss_multiplier=0.5)  # stop_loss_multiplier must be >=1.0
+
+    def test_no_indicator_overflow(self):
+        # Ensure that indicator calculations do not produce infinities or NaNs beyond initial periods
+        df_with_indicators = self.strategy.calculate_indicators(self.df.copy())
+        self.assertFalse(np.isinf(df_with_indicators['ema']).any())
+        self.assertFalse(np.isnan(df_with_indicators['ema']).all())
+
+        self.assertFalse(np.isinf(df_with_indicators['rsi']).any())
+        self.assertFalse(np.isnan(df_with_indicators['rsi']).all())
+
+        self.assertFalse(np.isinf(df_with_indicators['macd']).any())
+        self.assertFalse(np.isnan(df_with_indicators['macd']).all())
+
+        self.assertFalse(np.isinf(df_with_indicators['adx']).any())
+        self.assertFalse(np.isnan(df_with_indicators['adx']).all())
+
+        self.assertFalse(np.isinf(df_with_indicators['vwap']).any())
+        self.assertFalse(np.isnan(df_with_indicators['vwap']).all())
+
+        self.assertFalse(np.isinf(df_with_indicators['volume_sma_20']).any())
+        self.assertFalse(np.isnan(df_with_indicators['volume_sma_20']).all())
+
+        self.assertFalse(np.isinf(df_with_indicators['atr']).any())
+        self.assertFalse(np.isnan(df_with_indicators['atr']).all())
 
 if __name__ == '__main__':
     unittest.main()

@@ -111,37 +111,26 @@ class Backtester:
         current_position = 0  # 1 for LONG, -1 for SHORT, 0 for NO POSITION
 
         for signal in df['signal']:
-            if signal == 'BUY':
-                if current_position == 0:
-                    current_position = 1  # Enter LONG
-                    self.logger.debug("BUY signal received. Entering LONG position.")
-                elif current_position == -1:
-                    current_position = 1  # Reverse to LONG from SHORT
-                    self.logger.debug("BUY signal received. Reversing from SHORT to LONG position.")
-                # If already in LONG, maintain position
+            if signal == 'BUY' and current_position != 1:
+                current_position = 1  # Enter LONG
+                self.logger.debug("BUY signal received. Entering LONG position.")
             elif signal == 'SELL':
                 if current_position == 1:
-                    current_position = 0  # Exit LONG
+                    current_position = 0  # Neutralize LONG
                     self.logger.debug("SELL signal received. Exiting LONG position.")
                 elif current_position == 0:
                     current_position = -1  # Enter SHORT
                     self.logger.debug("SELL signal received. Entering SHORT position.")
-                elif current_position == -1:
-                    current_position = 0  # Exit SHORT
-                    self.logger.debug("SELL signal received. Exiting SHORT position.")
             elif signal == 'HOLD':
                 self.logger.debug("HOLD signal received. Maintaining current position.")
-                pass  # Maintain current position
+                # Maintain current position
             else:
                 self.logger.warning(f"Unknown signal '{signal}'. Maintaining current position.")
+                # Maintain current position for invalid signals
 
             positions.append(current_position)
 
         df['position'] = positions
-
-        # Debug output to verify 'signal' and 'position'
-        print(df[['signal', 'position']])
-
         return df
 
     def _calculate_returns(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -155,7 +144,7 @@ class Backtester:
         - DataFrame with added 'returns', 'strategy_returns', and 'cumulative_returns' columns.
         """
         self.logger.info("Calculating returns and performance.")
-        df['returns'] = df['close'].pct_change().fillna(0)  # Avoid NaN in returns
+        df['returns'] = df['close'].pct_change().fillna(0)
         df['strategy_returns'] = (df['returns'] * df['position'].shift(1)).fillna(0)
-        df['cumulative_returns'] = (1 + df['strategy_returns']).cumprod().fillna(1)  # Start cumulative at 1
+        df['cumulative_returns'] = (1 + df['strategy_returns']).cumprod().round(6)  # Ensure precision
         return df
